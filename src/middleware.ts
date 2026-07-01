@@ -4,6 +4,8 @@ const isPublicRoute = createRouteMatcher([
   '/',
   '/login',
   '/login/(.*)',
+  '/driver-app/login',
+  '/driver-app/login/(.*)',
   '/api/integrations/telegram/webhook',
   '/api/integrations/gmail/webhook',
   '/api/integrations/ringcentral/webhook',

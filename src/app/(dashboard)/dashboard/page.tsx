@@ -6,6 +6,7 @@ import { DashboardMap } from '@/components/modules/dashboard/DashboardMap';
 import { ActiveDriversList } from '@/components/modules/dashboard/ActiveDriversList';
 import { IntegrationStatus } from '@/components/modules/dashboard/IntegrationStatus';
 import { LoadStatusFunnel } from '@/components/modules/dashboard/LoadStatusFunnel';
+import { AutoRefresh } from '@/components/realtime/AutoRefresh';
 import { formatCurrency, formatRpm } from '@/lib/utils';
 import {
   DollarSign, Truck, Package, TrendingUp,
@@ -13,9 +14,12 @@ import {
 } from 'lucide-react';
 
 async function getDashboardData() {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
   const [
     activeLoads, activeTrucks, totalClients,
-    problemLoads, recentLoads, activeDrivers,
+    problemLoads, recentLoads, activeDrivers, last7DaysLoads,
   ] = await Promise.all([
     db.load.count({ where: { status: { notIn: ['CLOSED', 'CANCELLED', 'PAID'] } } }),
     db.truck.count({ where: { maintenanceStatus: { notIn: ['IN_PROGRESS', 'OVERDUE'] } } }),
@@ -35,13 +39,31 @@ async function getDashboardData() {
         locationUpdates: { orderBy: { at: 'desc' }, take: 1 },
       },
     }),
+    db.load.findMany({
+      where: { createdAt: { gte: sevenDaysAgo } },
+      select: { rate: true, createdAt: true },
+    }),
   ]);
 
   const grossTotal = recentLoads.reduce((sum, l) => sum + l.rate, 0);
   const totalMiles = recentLoads.reduce((sum, l) => sum + l.totalMiles, 0);
   const avgRpm = totalMiles > 0 ? grossTotal / totalMiles : 0;
 
-  return { activeLoads, activeTrucks, totalClients, problemLoads, grossTotal, avgRpm, activeDrivers };
+  // 7-day sparkline for the Gross Revenue KPI card
+  const grossTrend: number[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const day = new Date();
+    day.setDate(day.getDate() - i);
+    day.setHours(0, 0, 0, 0);
+    const next = new Date(day);
+    next.setDate(next.getDate() + 1);
+    const dayGross = last7DaysLoads
+      .filter((l: any) => new Date(l.createdAt) >= day && new Date(l.createdAt) < next)
+      .reduce((s: number, l: any) => s + l.rate, 0);
+    grossTrend.push(dayGross);
+  }
+
+  return { activeLoads, activeTrucks, totalClients, problemLoads, grossTotal, avgRpm, activeDrivers, grossTrend };
 }
 
 export default async function DashboardPage() {
@@ -51,9 +73,12 @@ export default async function DashboardPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary">Operations Overview</h1>
-        <p className="text-sm text-text-secondary mt-1">Real-time view of your dispatch operations</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Operations Overview</h1>
+          <p className="text-sm text-text-secondary mt-1">Real-time view of your dispatch operations</p>
+        </div>
+        <AutoRefresh intervalMs={10000} />
       </div>
 
       {/* KPI Row */}
@@ -63,6 +88,7 @@ export default async function DashboardPage() {
           value={formatCurrency(data.grossTotal)}
           icon={<DollarSign className="w-4 h-4 text-brand-light" />}
           iconColor="bg-brand-muted"
+          trend={data.grossTrend}
         />
         <KpiCard
           label="Active Loads"
@@ -104,8 +130,15 @@ export default async function DashboardPage() {
       {/* Map + Drivers side by side */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="xl:col-span-2 bg-background-card border border-border rounded-lg overflow-hidden h-[420px]">
-          <div className="px-4 py-3 border-b border-border-subtle">
+          <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
             <h2 className="text-sm font-semibold text-text-primary">Fleet Map</h2>
+            <span className="flex items-center gap-1.5 text-2xs text-success font-medium">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
+              </span>
+              Live
+            </span>
           </div>
           <DashboardMap />
         </div>

@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { ReactNode } from 'react';
+import { Sparkline } from './Sparkline';
 
 interface KpiCardProps {
   label: string;
@@ -13,14 +14,18 @@ interface KpiCardProps {
   suffix?: string;
   className?: string;
   loading?: boolean;
+  /** Mini trend line rendered under the value, matching the mockup KPI cards. */
+  trend?: number[];
+  trendColor?: string;
 }
 
 export function KpiCard({
   label, value, delta, deltaLabel, icon, iconColor,
-  prefix, suffix, className, loading,
+  prefix, suffix, className, loading, trend, trendColor,
 }: KpiCardProps) {
   const isPositive = delta !== undefined && delta > 0;
   const isNegative = delta !== undefined && delta < 0;
+  const resolvedTrendColor = trendColor ?? (isNegative ? '#EF4444' : '#3B82F6');
 
   return (
     <div className={cn('kpi-card', className)}>
@@ -36,10 +41,15 @@ export function KpiCard({
       {loading ? (
         <div className="h-8 bg-background-hover rounded animate-pulse w-24" />
       ) : (
-        <div className="flex items-end gap-1">
-          {prefix && <span className="text-text-secondary text-sm mb-0.5">{prefix}</span>}
-          <span className="text-2xl font-bold text-text-primary tracking-tight">{value}</span>
-          {suffix && <span className="text-text-secondary text-sm mb-0.5">{suffix}</span>}
+        <div className="flex items-end justify-between gap-2">
+          <div className="flex items-end gap-1">
+            {prefix && <span className="text-text-secondary text-sm mb-0.5">{prefix}</span>}
+            <span className="text-2xl font-bold text-text-primary tracking-tight">{value}</span>
+            {suffix && <span className="text-text-secondary text-sm mb-0.5">{suffix}</span>}
+          </div>
+          {trend && trend.length > 1 && (
+            <Sparkline data={trend} color={resolvedTrendColor} className="h-8 w-16 flex-shrink-0" />
+          )}
         </div>
       )}
 
