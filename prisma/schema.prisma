@@ -1,0 +1,790 @@
+// Dispatch CRM — Complete Prisma Schema
+// Source of truth for all data models
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  SENIOR_DISPATCHER
+  DISPATCHER
+  UPDATER
+  RECRUITER
+  FINANCE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ClientStatus {
+  ACTIVE
+  WARNING
+  INACTIVE
+  AT_RISK
+}
+
+enum DriverStatus {
+  AVAILABLE
+  ON_LOAD
+  OFF_DUTY
+  INACTIVE
+}
+
+enum TruckStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
+}
+
+enum LoadStatus {
+  NEW_LEAD
+  NEGOTIATING
+  BOOKED
+  RATE_CONFIRMATION_RECEIVED
+  ASSIGNED
+  EN_ROUTE_TO_PICKUP
+  AT_PICKUP
+  LOADED
+  IN_TRANSIT
+  AT_DELIVERY
+  DELIVERED
+  POD_UPLOADED
+  INVOICED
+  PAID
+  CLOSED
+  CANCELLED
+  PROBLEM
+}
+
+enum InvoiceStatus {
+  PENDING
+  UNPAID
+  PAID
+  OVERDUE
+}
+
+enum PaymentStatus {
+  PENDING
+  RECEIVED
+  OVERDUE
+}
+
+enum DocumentType {
+  RATE_CONFIRMATION
+  BOL
+  POD
+  LUMPER_RECEIPT
+  INSURANCE
+  REGISTRATION
+  CONTRACT
+  W9
+  CDL
+  MC_AUTHORITY
+  OTHER
+}
+
+enum DocumentEntityType {
+  LOAD
+  CLIENT
+  DRIVER
+  TRUCK
+}
+
+enum CommunicationChannel {
+  RINGCENTRAL
+  GMAIL
+  TELEGRAM
+  SMS
+  INTERNAL
+}
+
+enum CommunicationDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum IssueType {
+  DETENTION
+  BREAKDOWN
+  LATE_PICKUP
+  LATE_DELIVERY
+  WEATHER
+  COMMUNICATION
+  ROUTE_DEVIATION
+  ACCIDENT
+  OTHER
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum LocationSource {
+  MANUAL
+  GPS
+  ELD
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskCreatedFrom {
+  MISSED_CALL
+  MANUAL
+  AI
+  SYSTEM
+}
+
+enum ExportScope {
+  CLIENTS
+  DRIVERS
+  LOADS
+  FINANCE
+  ALL
+}
+
+enum ExportStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum FinanceEntryType {
+  DISPATCH_FEE
+  SENIOR_COMMISSION
+  FIXED_EXPENSE
+  COMPANY_REVENUE
+}
+
+enum LoadStatusSource {
+  CRM
+  TELEGRAM
+  APP
+  SYSTEM
+}
+
+enum TrailerType {
+  DRY_VAN
+  REEFER
+  FLATBED
+  STEP_DECK
+  LOWBOY
+  TANKER
+  CONESTOGA
+  OTHER
+}
+
+enum MaintenanceStatus {
+  OK
+  SCHEDULED
+  IN_PROGRESS
+  OVERDUE
+}
+
+// ─── USERS & AUTH ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(cuid())
+  clerkId      String     @unique
+  fullName     String
+  email        String     @unique
+  phone        String?
+  role         UserRole
+  isSenior     Boolean    @default(false)
+  status       UserStatus @default(ACTIVE)
+  twoFaEnabled Boolean    @default(false)
+  ndaAccepted  Boolean    @default(false)
+  ndaAcceptedAt DateTime?
+  ndaVersion   String?
+  managerId    String?
+  manager      User?      @relation("TeamHierarchy", fields: [managerId], references: [id])
+  team         User[]     @relation("TeamHierarchy")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Relations
+  clientsManaged      Client[]          @relation("DispatcherClients")
+  driversManaged      Driver[]          @relation("DispatcherDrivers")
+  driversUpdated      Driver[]          @relation("UpdaterDrivers")
+  loadsDispatched     Load[]            @relation("DispatcherLoads")
+  loadsUpdated        Load[]            @relation("UpdaterLoads")
+  locationUpdates     LocationUpdate[]
+  communications      Communication[]   @relation("CreatedByUser")
+  tasks               Task[]            @relation("AssignedTasks")
+  tasksCreated        Task[]            @relation("CreatedTasks")
+  auditLogs           AuditLog[]
+  accessLogs          AccessLog[]
+  exportRequests      ExportRequest[]   @relation("RequestedBy")
+  exportApprovals     ExportRequest[]   @relation("ApprovedBy")
+  statusChanges       LoadStatusHistory[]
+  commissions         FinanceEntry[]
+  surveysReceived     Survey[]
+
+  @@index([role])
+  @@index([managerId])
+}
+
+model AccessLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  ip        String?
+  device    String?
+  loginAt   DateTime @default(now())
+  logoutAt  DateTime?
+
+  @@index([userId])
+}
+
+// ─── CLIENTS / TRUCK OWNERS ───────────────────────────────────────────────────
+
+model Client {
+  id                String       @id @default(cuid())
+  companyName       String
+  mc                String?      @unique
+  dot               String?
+  status            ClientStatus @default(ACTIVE)
+  dispatchFeePercent Float       @default(10.0)
+  dispatcherId      String?
+  dispatcher        User?        @relation("DispatcherClients", fields: [dispatcherId], references: [id])
+  address           String?
+  city              String?
+  state             String?
+  zip               String?
+  notes             String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  contacts      ClientContact[]
+  trucks        Truck[]
+  drivers       Driver[]
+  loads         Load[]
+  documents     Document[]      @relation("ClientDocuments")
+  communications Communication[]
+  invoices      Invoice[]
+  surveys       Survey[]
+  financeEntries FinanceEntry[]
+  portalUser    PortalUser?
+
+  @@index([dispatcherId])
+  @@index([status])
+}
+
+model ClientContact {
+  id       String  @id @default(cuid())
+  clientId String
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name     String
+  email    String?
+  phone    String?
+  telegram String?
+  role     String?
+  isPrimary Boolean @default(false)
+
+  @@index([clientId])
+}
+
+// ─── DRIVERS ─────────────────────────────────────────────────────────────────
+
+model Driver {
+  id             String       @id @default(cuid())
+  clientId       String
+  client         Client       @relation(fields: [clientId], references: [id])
+  fullName       String
+  phone          String?
+  email          String?
+  telegram       String?
+  telegramChatId String?
+  cdlNumber      String?
+  cdlState       String?
+  cdlExpiry      DateTime?
+  status         DriverStatus @default(AVAILABLE)
+  homeBase       String?
+  preferredLanes String[]
+  currentTruckId String?      @unique
+  currentLoadId  String?
+  dispatcherId   String?
+  dispatcher     User?        @relation("DispatcherDrivers", fields: [dispatcherId], references: [id])
+  updaterId      String?
+  updater        User?        @relation("UpdaterDrivers", fields: [updaterId], references: [id])
+  score          Float        @default(100.0)
+  hosAvailableUntil DateTime?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  currentTruck    Truck?          @relation("CurrentDriver", fields: [currentTruckId], references: [id])
+  loads           Load[]
+  locationUpdates LocationUpdate[]
+  documents       Document[]      @relation("DriverDocuments")
+  issues          Issue[]         @relation("DriverIssues")
+  scoreEvents     ScoreEvent[]
+  mobileUser      MobileUser?
+
+  @@index([clientId])
+  @@index([dispatcherId])
+  @@index([status])
+}
+
+// ─── TRUCKS ───────────────────────────────────────────────────────────────────
+
+model Truck {
+  id                String            @id @default(cuid())
+  clientId          String
+  client            Client            @relation(fields: [clientId], references: [id])
+  truckNumber       String
+  vin               String?
+  plate             String?
+  plateState        String?
+  trailerType       TrailerType       @default(DRY_VAN)
+  eldProvider       String?
+  eldDeviceId       String?
+  currentDriverId   String?
+  currentLoadId     String?
+  maintenanceStatus MaintenanceStatus @default(OK)
+  insuranceExp      DateTime?
+  registrationExp   DateTime?
+  iftaExp           DateTime?
+  year              Int?
+  make              String?
+  model             String?
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  currentDriver Driver?    @relation("CurrentDriver")
+  loads         Load[]
+  trailers      Trailer[]
+  documents     Document[] @relation("TruckDocuments")
+
+  @@index([clientId])
+  @@index([currentDriverId])
+}
+
+model Trailer {
+  id      String      @id @default(cuid())
+  truckId String?
+  truck   Truck?      @relation(fields: [truckId], references: [id])
+  type    TrailerType
+  length  Int?
+  year    Int?
+  plate   String?
+  vin     String?
+}
+
+// ─── BROKERS ─────────────────────────────────────────────────────────────────
+
+model Broker {
+  id        String   @id @default(cuid())
+  name      String
+  mc        String?  @unique
+  email     String?
+  phone     String?
+  rating    Float    @default(3.0)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  loads          Load[]
+  communications Communication[]
+}
+
+// ─── LOADS ───────────────────────────────────────────────────────────────────
+
+model Load {
+  id              String        @id @default(cuid())
+  loadCode        String        @unique @default(cuid())
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id])
+  brokerId        String?
+  broker          Broker?       @relation(fields: [brokerId], references: [id])
+  brokerContact   String?
+  brokerEmail     String?
+  brokerPhone     String?
+  dispatcherId    String?
+  dispatcher      User?         @relation("DispatcherLoads", fields: [dispatcherId], references: [id])
+  updaterId       String?
+  updater         User?         @relation("UpdaterLoads", fields: [updaterId], references: [id])
+  driverId        String?
+  driver          Driver?       @relation(fields: [driverId], references: [id])
+  truckId         String?
+  truck           Truck?        @relation(fields: [truckId], references: [id])
+
+  // Route
+  pickupAddress   String?
+  pickupCity      String?
+  pickupState     String?
+  pickupZip       String?
+  pickupAt        DateTime?
+  deliveryAddress String?
+  deliveryCity    String?
+  deliveryState   String?
+  deliveryZip     String?
+  deliveryAt      DateTime?
+
+  // Financials
+  rate            Float         @default(0)
+  loadedMiles     Float         @default(0)
+  emptyMiles      Float         @default(0)
+  totalMiles      Float         @default(0)
+  rpm             Float?        // Calculated: rate / totalMiles
+  commodity       String?
+  weight          Float?
+  equipmentType   TrailerType   @default(DRY_VAN)
+  lumper          Float         @default(0)
+  detention       Float         @default(0)
+  layover         Float         @default(0)
+  tonu            Float         @default(0)
+
+  // Status
+  status          LoadStatus    @default(NEW_LEAD)
+  invoiceStatus   InvoiceStatus @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+
+  notes           String?
+  referenceNumber String?
+  poNumber        String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  statusHistory   LoadStatusHistory[]
+  documents       Document[]         @relation("LoadDocuments")
+  issues          Issue[]
+  locationUpdates LocationUpdate[]
+  communications  Communication[]
+  invoices        Invoice[]
+
+  @@index([clientId])
+  @@index([dispatcherId])
+  @@index([driverId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model LoadStatusHistory {
+  id          String           @id @default(cuid())
+  loadId      String
+  load        Load             @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  fromStatus  LoadStatus?
+  toStatus    LoadStatus
+  changedById String?
+  changedBy   User?            @relation(fields: [changedById], references: [id])
+  source      LoadStatusSource @default(CRM)
+  notes       String?
+  at          DateTime         @default(now())
+
+  @@index([loadId])
+}
+
+// ─── DOCUMENTS ───────────────────────────────────────────────────────────────
+
+model Document {
+  id           String             @id @default(cuid())
+  entityType   DocumentEntityType
+  entityId     String
+  docType      DocumentType
+  fileName     String
+  fileUrl      String
+  fileSize     Int?
+  mimeType     String?
+  uploadedById String?
+  uploadedAt   DateTime           @default(now())
+  status       String             @default("active")
+  notes        String?
+
+  // Polymorphic relations
+  load   Load?   @relation("LoadDocuments",   fields: [entityId], references: [id], map: "load_doc")
+  client Client? @relation("ClientDocuments", fields: [entityId], references: [id], map: "client_doc")
+  driver Driver? @relation("DriverDocuments", fields: [entityId], references: [id], map: "driver_doc")
+  truck  Truck?  @relation("TruckDocuments",  fields: [entityId], references: [id], map: "truck_doc")
+
+  @@index([entityType, entityId])
+  @@index([docType])
+}
+
+// ─── COMMUNICATIONS ───────────────────────────────────────────────────────────
+
+model Communication {
+  id              String                 @id @default(cuid())
+  channel         CommunicationChannel
+  direction       CommunicationDirection
+  from            String?
+  to              String?
+  subject         String?
+  body            String?
+  recordingUrl    String?
+  aiSummary       String?
+  duration        Int?                   // seconds, for calls
+  isRead          Boolean                @default(false)
+
+  // Related context
+  relatedClientId String?
+  relatedClient   Client?  @relation(fields: [relatedClientId], references: [id])
+  relatedLoadId   String?
+  relatedLoad     Load?    @relation(fields: [relatedLoadId], references: [id])
+  relatedDriverId String?
+  relatedBrokerId String?
+  relatedBroker   Broker?  @relation(fields: [relatedBrokerId], references: [id])
+
+  createdById     String?
+  createdBy       User?    @relation("CreatedByUser", fields: [createdById], references: [id])
+  externalId      String?  // ID from RingCentral/Gmail/TG
+  at              DateTime @default(now())
+
+  tasks Task[]
+
+  @@index([channel])
+  @@index([relatedClientId])
+  @@index([relatedLoadId])
+  @@index([isRead])
+  @@index([at])
+}
+
+// ─── TASKS ────────────────────────────────────────────────────────────────────
+
+model Task {
+  id              String          @id @default(cuid())
+  title           String
+  description     String?
+  priority        TaskPriority    @default(MEDIUM)
+  dueAt           DateTime?
+  assigneeId      String?
+  assignee        User?           @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  createdById     String?
+  createdBy       User?           @relation("CreatedTasks", fields: [createdById], references: [id])
+  status          TaskStatus      @default(PENDING)
+  createdFrom     TaskCreatedFrom @default(MANUAL)
+  communicationId String?
+  communication   Communication?  @relation(fields: [communicationId], references: [id])
+  relatedLoadId   String?
+  relatedClientId String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([assigneeId])
+  @@index([status])
+  @@index([dueAt])
+}
+
+// ─── ISSUES ───────────────────────────────────────────────────────────────────
+
+model Issue {
+  id          String      @id @default(cuid())
+  loadId      String
+  load        Load        @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  driverId    String?
+  driver      Driver?     @relation("DriverIssues", fields: [driverId], references: [id])
+  type        IssueType
+  description String
+  status      IssueStatus @default(OPEN)
+  createdById String?
+  resolvedAt  DateTime?
+  at          DateTime    @default(now())
+
+  @@index([loadId])
+  @@index([status])
+}
+
+// ─── LOCATION UPDATES ─────────────────────────────────────────────────────────
+
+model LocationUpdate {
+  id          String         @id @default(cuid())
+  driverId    String
+  driver      Driver         @relation(fields: [driverId], references: [id])
+  loadId      String?
+  load        Load?          @relation(fields: [loadId], references: [id])
+  lat         Float
+  lng         Float
+  label       String?
+  speed       Float?
+  heading     Float?
+  source      LocationSource @default(MANUAL)
+  eta         DateTime?
+  etaLabel    String?
+  updatedById String?
+  updatedBy   User?          @relation(fields: [updatedById], references: [id])
+  at          DateTime       @default(now())
+
+  @@index([driverId])
+  @@index([loadId])
+  @@index([at])
+}
+
+// ─── FINANCE ─────────────────────────────────────────────────────────────────
+
+model Invoice {
+  id          String        @id @default(cuid())
+  loadId      String
+  load        Load          @relation(fields: [loadId], references: [id])
+  clientId    String
+  client      Client        @relation(fields: [clientId], references: [id])
+  number      String        @unique
+  amount      Float
+  issuedAt    DateTime      @default(now())
+  dueAt       DateTime?
+  paidAmount  Float         @default(0)
+  paidAt      DateTime?
+  status      InvoiceStatus @default(PENDING)
+  agingDays   Int           @default(0) // calculated field, updated by cron
+  notes       String?
+
+  @@index([clientId])
+  @@index([status])
+  @@index([dueAt])
+}
+
+model FinanceEntry {
+  id              String           @id @default(cuid())
+  period          String           // "2024-W01", "2024-01"
+  type            FinanceEntryType
+  clientId        String?
+  client          Client?          @relation(fields: [clientId], references: [id])
+  dispatcherId    String?
+  dispatcher      User?            @relation(fields: [dispatcherId], references: [id])
+  gross           Float            @default(0)
+  amount          Float            @default(0)
+  formulaSnapshot Json             // { rate, percentage, ... } at time of calculation
+  notes           String?
+  createdAt       DateTime         @default(now())
+
+  @@index([period])
+  @@index([type])
+  @@index([dispatcherId])
+}
+
+model CompanySettings {
+  id                    String   @id @default(cuid())
+  companyName           String   @default("Dispatch Co.")
+  companyPercentage     Float    @default(10.0)  // % of gross
+  seniorCommissionRate  Float    @default(1.5)   // % of gross
+  targetRpm             Float    @default(2.5)
+  fixedExpenses         Float    @default(0)
+  logoUrl               String?
+  timezone              String   @default("America/Chicago")
+  updatedAt             DateTime @updatedAt
+}
+
+// ─── SURVEYS / FEEDBACK ───────────────────────────────────────────────────────
+
+model Survey {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
+  dispatcherId String?
+  dispatcher   User?    @relation(fields: [dispatcherId], references: [id])
+  rating       Int      // 1-5
+  comment      String?
+  week         String   // "2024-W01"
+  at           DateTime @default(now())
+
+  @@index([clientId])
+}
+
+// ─── DRIVER SCORE ────────────────────────────────────────────────────────────
+
+model ScoreEvent {
+  id        String   @id @default(cuid())
+  driverId  String
+  driver    Driver   @relation(fields: [driverId], references: [id])
+  eventType String   // "late_pickup", "on_time_delivery", "incident", etc.
+  weight    Float    // positive or negative
+  notes     String?
+  at        DateTime @default(now())
+
+  @@index([driverId])
+}
+
+// ─── AUDIT / SECURITY ─────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  action     String   // "create", "update", "delete", "export", "login"
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  ip         String?
+  at         DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([at])
+}
+
+model ExportRequest {
+  id            String       @id @default(cuid())
+  requestedById String
+  requestedBy   User         @relation("RequestedBy", fields: [requestedById], references: [id])
+  scope         ExportScope
+  reason        String?
+  status        ExportStatus @default(PENDING)
+  approvedById  String?
+  approvedBy    User?        @relation("ApprovedBy", fields: [approvedById], references: [id])
+  fileUrl       String?
+  at            DateTime     @default(now())
+  resolvedAt    DateTime?
+
+  @@index([status])
+  @@index([requestedById])
+}
+
+// ─── PORTAL / MOBILE USERS ───────────────────────────────────────────────────
+
+model PortalUser {
+  id           String   @id @default(cuid())
+  clientId     String   @unique
+  client       Client   @relation(fields: [clientId], references: [id])
+  clerkId      String   @unique
+  email        String   @unique
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model MobileUser {
+  id          String   @id @default(cuid())
+  driverId    String   @unique
+  driver      Driver   @relation(fields: [driverId], references: [id])
+  clerkId     String   @unique
+  email       String?
+  phone       String?
+  linkCode    String?  @unique  // one-time Telegram linking code
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+}
+
+// ─── TELEGRAM LINK CODES ──────────────────────────────────────────────────────
+
+model TelegramLink {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  entityId  String   // driver or client id
+  entityType String  // "driver" or "client"
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}

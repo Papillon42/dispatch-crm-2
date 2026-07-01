@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+    --background: 220 14% 6%;
+    --foreground: 216 12% 95%;
+    --card: 220 13% 13%;
+    --card-foreground: 216 12% 95%;
+    --border: 220 10% 18%;
+    --input: 220 10% 18%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 13% 15%;
+    --secondary-foreground: 216 12% 75%;
+    --muted: 220 13% 15%;
+    --muted-foreground: 220 9% 55%;
+    --accent: 220 13% 17%;
+    --accent-foreground: 216 12% 85%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --ring: 217 91% 60%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-text-primary;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #111318;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2A2D36;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3B4050;
+  }
+}
+
+@layer components {
+  /* KPI Card */
+  .kpi-card {
+    @apply bg-background-card border border-border rounded-lg p-5 flex flex-col gap-3;
+  }
+
+  /* Data table */
+  .data-table th {
+    @apply text-text-secondary text-xs font-medium uppercase tracking-wider px-4 py-3 text-left;
+  }
+  .data-table td {
+    @apply px-4 py-3 text-sm text-text-primary border-t border-border-subtle;
+  }
+  .data-table tr:hover td {
+    @apply bg-background-hover;
+  }
+
+  /* Status badges */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  /* Right panel */
+  .right-panel {
+    @apply w-[420px] flex-shrink-0 border-l border-border bg-background-secondary h-full overflow-y-auto;
+  }
+
+  /* Sidebar nav item */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-md text-sm text-text-secondary
+           hover:bg-background-hover hover:text-text-primary transition-colors cursor-pointer;
+  }
+  .nav-item.active {
+    @apply bg-brand-muted text-brand-light;
+  }
+}
