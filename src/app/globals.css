@@ -2,35 +2,129 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens — theme-aware CSS custom properties.
+ * Values are HSL triplets (no hsl() wrapper) so Tailwind can apply them as
+ * `hsl(var(--token) / <alpha-value>)`, which keeps opacity modifiers like
+ * `bg-brand-muted/40` working across both themes.
+ *
+ * Default (no data-theme attribute yet, e.g. pre-hydration) = night, so
+ * there's no flash of the wrong theme before the blocking script in
+ * layout.tsx sets the real attribute.
+ */
 @layer base {
-  :root {
+  :root,
+  :root[data-theme='night'] {
     --radius: 0.5rem;
-    --background: 220 14% 6%;
-    --foreground: 216 12% 95%;
-    --card: 220 13% 13%;
-    --card-foreground: 216 12% 95%;
-    --border: 220 10% 18%;
-    --input: 220 10% 18%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 13% 15%;
-    --secondary-foreground: 216 12% 75%;
-    --muted: 220 13% 15%;
-    --muted-foreground: 220 9% 55%;
-    --accent: 220 13% 17%;
-    --accent-foreground: 216 12% 85%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --ring: 217 91% 60%;
+
+    --background: 220 23% 5%;
+    --background-secondary: 223 17% 8%;
+    --background-tertiary: 222 17% 11%;
+    --background-card: 225 18% 13%;
+    --background-hover: 220 14% 16%;
+
+    --border: 225 12% 19%;
+    --border-subtle: 222 14% 14%;
+    --border-focus: 217 91% 60%;
+
+    --text-primary: 220 27% 96%;
+    --text-secondary: 221 10% 58%;
+    --text-muted: 219 12% 37%;
+    --text-inverse: 220 23% 5%;
+
+    --brand: 217 91% 60%;
+    --brand-light: 213 94% 68%;
+    --brand-dark: 224 76% 48%;
+    --brand-muted: 214 52% 25%;
+
+    --success: 142 71% 45%;
+    --success-light: 142 77% 73%;
+    --success-dark: 142 72% 29%;
+    --success-muted: 144 61% 20%;
+
+    --warning: 38 92% 50%;
+    --warning-light: 46 97% 65%;
+    --warning-dark: 26 90% 37%;
+    --warning-muted: 21 92% 14%;
+
+    --danger: 0 84% 60%;
+    --danger-light: 0 94% 82%;
+    --danger-dark: 0 74% 42%;
+    --danger-muted: 0 75% 15%;
+
+    --info: 217 91% 60%;
+    --info-light: 212 96% 78%;
+    --info-dark: 224 76% 48%;
+    --info-muted: 214 52% 25%;
+
+    --globe-line: 96 165 250;
+    --scrollbar-track: 223 17% 8%;
+    --scrollbar-thumb: 225 12% 19%;
+    --scrollbar-thumb-hover: 220 14% 26%;
+  }
+
+  :root[data-theme='day'] {
+    --background: 41 50% 94%;
+    --background-secondary: 42 45% 90%;
+    --background-tertiary: 43 42% 86%;
+    --background-card: 50 100% 99%;
+    --background-hover: 42 46% 89%;
+
+    --border: 42 38% 81%;
+    --border-subtle: 42 44% 87%;
+    --border-focus: 217 91% 60%;
+
+    --text-primary: 39 24% 11%;
+    --text-secondary: 36 13% 37%;
+    --text-muted: 40 12% 52%;
+    --text-inverse: 42 50% 96%;
+
+    --brand: 221 83% 53%;
+    --brand-light: 217 91% 60%;
+    --brand-dark: 224 76% 48%;
+    --brand-muted: 215 89% 93%;
+
+    --success: 142 76% 36%;
+    --success-light: 142 71% 45%;
+    --success-dark: 142 72% 29%;
+    --success-muted: 141 84% 93%;
+
+    --warning: 32 95% 44%;
+    --warning-light: 38 92% 50%;
+    --warning-dark: 26 90% 37%;
+    --warning-muted: 48 96% 89%;
+
+    --danger: 0 72% 51%;
+    --danger-light: 0 84% 60%;
+    --danger-dark: 0 74% 42%;
+    --danger-muted: 0 93% 94%;
+
+    --info: 221 83% 53%;
+    --info-light: 217 91% 60%;
+    --info-dark: 224 76% 48%;
+    --info-muted: 214 95% 93%;
+
+    --globe-line: 37 99 235;
+    --scrollbar-track: 42 45% 90%;
+    --scrollbar-thumb: 42 38% 81%;
+    --scrollbar-thumb-hover: 40 30% 72%;
   }
 
   * {
     @apply border-border;
   }
 
+  html {
+    color-scheme: dark;
+  }
+  html[data-theme='day'] {
+    color-scheme: light;
+  }
+
   body {
-    @apply bg-background text-text-primary;
+    @apply bg-background text-text-primary antialiased;
     font-feature-settings: 'rlig' 1, 'calt' 1;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   /* Scrollbar styling */
@@ -39,21 +133,21 @@
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #111318;
+    background: hsl(var(--scrollbar-track));
   }
   ::-webkit-scrollbar-thumb {
-    background: #2A2D36;
+    background: hsl(var(--scrollbar-thumb));
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #3B4050;
+    background: hsl(var(--scrollbar-thumb-hover));
   }
 }
 
 @layer components {
   /* KPI Card */
   .kpi-card {
-    @apply bg-background-card border border-border rounded-lg p-5 flex flex-col gap-3;
+    @apply bg-background-card border border-border rounded-lg p-5 flex flex-col gap-3 transition-colors;
   }
 
   /* Data table */

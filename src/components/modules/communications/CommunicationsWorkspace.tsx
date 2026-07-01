@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Phone, Mail, Send, MessageSquare, Search, Sparkles, RefreshCw,
   Plus, CheckSquare, Link2, PhoneMissed, Clock,
@@ -299,6 +300,11 @@ export function CommunicationsWorkspace() {
 function TasksPanel() {
   const { data, refresh } = usePolling<any>('/api/tasks?mine=1', { intervalMs: 15000 });
   const [creating, setCreating] = useState(false);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('new_task') === '1') setCreating(true);
+  }, [searchParams]);
   const [title, setTitle] = useState('');
   const tasks = data?.tasks ?? [];
 

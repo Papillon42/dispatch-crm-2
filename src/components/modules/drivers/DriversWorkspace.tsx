@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
   CalendarClock,
@@ -143,6 +144,11 @@ export function DriversWorkspace() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') setIsCreateOpen(true);
+  }, [searchParams]);
   const [form, setForm] = useState<CreateDriverForm>(EMPTY_FORM);
 
   const query = useMemo(() => {

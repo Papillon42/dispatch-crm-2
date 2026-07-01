@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Search, SlidersHorizontal, RefreshCw, Plus, FileText,
   DollarSign, Package, TrendingUp, Gauge, AlertTriangle,
@@ -11,6 +12,7 @@ import { LiveBadge } from '@/components/realtime/LiveBadge';
 import { usePolling } from '@/hooks/usePolling';
 import { cn, formatCurrency, formatNumber } from '@/lib/utils';
 import { LoadDetailPanel } from './LoadDetailPanel';
+import { CreateLoadModal } from './CreateLoadModal';
 
 const FUNNEL_LABELS: Record<string, string> = {
   NEW_LEAD: 'New Lead',
@@ -46,7 +48,13 @@ export function LoadsWorkspace() {
   const [status, setStatus] = useState('ALL');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
   const limit = 25;
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') setShowCreate(true);
+  }, [searchParams]);
 
   const { data: summary, lastUpdatedAt: summaryUpdatedAt } = usePolling<any>('/api/loads/summary', { intervalMs: 12000 });
 
@@ -92,7 +100,7 @@ export function LoadsWorkspace() {
         </div>
         <div className="flex items-center gap-3">
           <LiveBadge lastUpdatedAt={summaryUpdatedAt} />
-          <button className="flex items-center gap-2 px-4 py-2 rounded-md bg-brand hover:bg-brand-dark text-white text-sm font-medium transition-colors">
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-md bg-brand hover:bg-brand-dark text-white text-sm font-medium transition-colors">
             <Plus className="w-4 h-4" /> Create Load
           </button>
         </div>
@@ -280,6 +288,10 @@ export function LoadsWorkspace() {
           />
         )}
       </div>
+
+      {showCreate && (
+        <CreateLoadModal onClose={() => setShowCreate(false)} onCreated={fetchLoads} />
+      )}
     </div>
   );
 }

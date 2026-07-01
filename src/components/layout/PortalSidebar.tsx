@@ -8,6 +8,7 @@ import {
   BarChart2, ClipboardList, LifeBuoy, Truck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher';
 
 const NAV_ITEMS = [
   { label: 'Home',      href: '/portal',            icon: Home },
@@ -50,7 +51,11 @@ export function PortalSidebar({ companyName }: { companyName: string }) {
         ))}
       </nav>
 
-      <div className="px-3 py-3 border-t border-border-subtle">
+      <div className="px-3 py-3 border-t border-border-subtle space-y-2">
+        <div className="flex items-center justify-between px-3">
+          <span className="text-2xs text-text-muted">Theme</span>
+          <ThemeSwitcher />
+        </div>
         <div className="flex items-center gap-3 px-3 py-2">
           <UserButton afterSignOutUrl="/login" />
           <span className="text-sm text-text-secondary">Account</span>

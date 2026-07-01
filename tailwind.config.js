@@ -1,4 +1,8 @@
 /** @type {import('tailwindcss').Config} */
+function withOpacity(variable) {
+  return `hsl(var(${variable}) / <alpha-value>)`;
+}
+
 module.exports = {
   darkMode: ['class'],
   content: [
@@ -9,34 +13,36 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Dark premium theme — extracted from mockups
+        // Theme-aware design tokens — see src/app/globals.css for the
+        // night/day CSS variable definitions behind these.
         background: {
-          DEFAULT: '#0A0C10',
-          secondary: '#111318',
-          tertiary: '#181B22',
-          card: '#1C1F28',
-          hover: '#242830',
+          DEFAULT: withOpacity('--background'),
+          secondary: withOpacity('--background-secondary'),
+          tertiary: withOpacity('--background-tertiary'),
+          card: withOpacity('--background-card'),
+          hover: withOpacity('--background-hover'),
         },
         border: {
-          DEFAULT: '#2A2D36',
-          subtle: '#1E2128',
-          focus: '#3B82F6',
+          DEFAULT: withOpacity('--border'),
+          subtle: withOpacity('--border-subtle'),
+          focus: withOpacity('--border-focus'),
         },
         text: {
-          primary: '#F1F3F7',
-          secondary: '#8A91A0',
-          muted: '#545C6B',
-          inverse: '#0A0C10',
+          primary: withOpacity('--text-primary'),
+          secondary: withOpacity('--text-secondary'),
+          muted: withOpacity('--text-muted'),
+          inverse: withOpacity('--text-inverse'),
         },
         brand: {
-          DEFAULT: '#3B82F6',
-          light: '#60A5FA',
-          dark: '#1D4ED8',
-          muted: '#1E3A5F',
+          DEFAULT: withOpacity('--brand'),
+          light: withOpacity('--brand-light'),
+          dark: withOpacity('--brand-dark'),
+          muted: withOpacity('--brand-muted'),
         },
-        // Status colors
+        // Status colors (load/driver/client pipeline states) — kept as
+        // fixed, saturated accents across both themes for recognizability;
+        // only the surfaces around them (background/border/text) shift.
         status: {
-          // Load statuses
           'new-lead':    '#6366F1',
           'negotiating': '#8B5CF6',
           'booked':      '#3B82F6',
@@ -61,10 +67,30 @@ module.exports = {
           'inactive':    '#6B7280',
           'at-risk':     '#EF4444',
         },
-        success: { DEFAULT: '#22C55E', light: '#86EFAC', dark: '#15803D', muted: '#14532D' },
-        warning: { DEFAULT: '#F59E0B', light: '#FCD34D', dark: '#B45309', muted: '#451A03' },
-        danger:  { DEFAULT: '#EF4444', light: '#FCA5A5', dark: '#B91C1C', muted: '#450A0A' },
-        info:    { DEFAULT: '#3B82F6', light: '#93C5FD', dark: '#1D4ED8', muted: '#1E3A5F' },
+        success: {
+          DEFAULT: withOpacity('--success'),
+          light: withOpacity('--success-light'),
+          dark: withOpacity('--success-dark'),
+          muted: withOpacity('--success-muted'),
+        },
+        warning: {
+          DEFAULT: withOpacity('--warning'),
+          light: withOpacity('--warning-light'),
+          dark: withOpacity('--warning-dark'),
+          muted: withOpacity('--warning-muted'),
+        },
+        danger: {
+          DEFAULT: withOpacity('--danger'),
+          light: withOpacity('--danger-light'),
+          dark: withOpacity('--danger-dark'),
+          muted: withOpacity('--danger-muted'),
+        },
+        info: {
+          DEFAULT: withOpacity('--info'),
+          light: withOpacity('--info-light'),
+          dark: withOpacity('--info-dark'),
+          muted: withOpacity('--info-muted'),
+        },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

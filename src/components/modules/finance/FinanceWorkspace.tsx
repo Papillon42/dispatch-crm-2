@@ -11,23 +11,12 @@ import {
 import { KpiCard } from '@/components/ui/KpiCard';
 import { LiveBadge } from '@/components/realtime/LiveBadge';
 import { InvoiceStatusBadge } from '@/components/ui/StatusBadge';
+import { ChartCard } from '@/components/ui/ChartCard';
 import { usePolling } from '@/hooks/usePolling';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 
 const DONUT_COLORS = ['#3B82F6', '#22C55E', '#F59E0B', '#8B5CF6', '#06B6D4', '#6B7280'];
 const AGING_COLORS: Record<string, string> = { '0-30': '#22C55E', '31-60': '#F59E0B', '61-90': '#F97316', '90+': '#EF4444' };
-
-function ChartCard({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="bg-background-card border border-border rounded-lg p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
-        {action}
-      </div>
-      {children}
-    </div>
-  );
-}
 
 export function FinanceWorkspace() {
   const { data, loading, lastUpdatedAt } = usePolling<any>('/api/finance/dashboard?period=month', { intervalMs: 15000 });

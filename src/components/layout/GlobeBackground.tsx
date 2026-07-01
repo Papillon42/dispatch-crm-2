@@ -6,6 +6,8 @@ import { useEffect, useRef } from 'react';
  * Subtle rotating wireframe globe, rendered on a fixed full-viewport canvas
  * behind all app content. Pure canvas 2D — no WebGL/three.js dependency,
  * cheap enough to run continuously alongside live-polling dashboards.
+ * Line color reads the --globe-line CSS variable so it adapts to the
+ * active theme (brighter blue on night, deeper blue on day).
  */
 export function GlobeBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -21,6 +23,15 @@ export function GlobeBackground() {
     let width = 0;
     let height = 0;
     let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let lineRgb = '96, 165, 250';
+
+    const readThemeColor = () => {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue('--globe-line').trim();
+      if (raw) lineRgb = raw.replace(/\s+/g, ', ');
+    };
+    readThemeColor();
+    const themeObserver = new MutationObserver(readThemeColor);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
     const LAT_STEPS = 16;
     const LON_STEPS = 24;
@@ -85,8 +96,8 @@ export function GlobeBackground() {
 
       // Outer rim glow
       const grad = ctx.createRadialGradient(cx, cy, radius * 0.6, cx, cy, radius * 1.15);
-      grad.addColorStop(0, 'rgba(59, 130, 246, 0.10)');
-      grad.addColorStop(1, 'rgba(59, 130, 246, 0)');
+      grad.addColorStop(0, `rgba(${lineRgb}, 0.10)`);
+      grad.addColorStop(1, `rgba(${lineRgb}, 0)`);
       ctx.beginPath();
       ctx.fillStyle = grad;
       ctx.arc(cx, cy, radius * 1.15, 0, Math.PI * 2);
@@ -94,7 +105,7 @@ export function GlobeBackground() {
 
       // Sphere outline
       ctx.beginPath();
-      ctx.strokeStyle = 'rgba(96, 165, 250, 0.16)';
+      ctx.strokeStyle = `rgba(${lineRgb}, 0.16)`;
       ctx.lineWidth = 1;
       ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.stroke();
@@ -106,7 +117,7 @@ export function GlobeBackground() {
         const ringY = cy + Math.sin(lat) * radius;
         if (ringRadius < 1) continue;
         ctx.beginPath();
-        ctx.strokeStyle = 'rgba(96, 165, 250, 0.07)';
+        ctx.strokeStyle = `rgba(${lineRgb}, 0.07)`;
         ctx.lineWidth = 1;
         ctx.ellipse(cx, ringY, ringRadius, ringRadius * 0.28, 0, 0, Math.PI * 2);
         ctx.stroke();
@@ -117,7 +128,7 @@ export function GlobeBackground() {
         if (pr.z < -0.15) continue;
         const depthAlpha = 0.08 + ((pr.z + 1) / 2) * 0.34;
         ctx.beginPath();
-        ctx.fillStyle = `rgba(96, 165, 250, ${depthAlpha.toFixed(3)})`;
+        ctx.fillStyle = `rgba(${lineRgb}, ${depthAlpha.toFixed(3)})`;
         const dotSize = 0.9 + ((pr.z + 1) / 2) * 1.1;
         ctx.arc(pr.x, pr.y, dotSize, 0, Math.PI * 2);
         ctx.fill();
@@ -140,6 +151,7 @@ export function GlobeBackground() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
+      themeObserver.disconnect();
     };
   }, []);
 
