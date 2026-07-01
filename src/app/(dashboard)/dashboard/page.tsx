@@ -6,12 +6,32 @@ import { DashboardMap } from '@/components/modules/dashboard/DashboardMap';
 import { ActiveDriversList } from '@/components/modules/dashboard/ActiveDriversList';
 import { IntegrationStatus } from '@/components/modules/dashboard/IntegrationStatus';
 import { LoadStatusFunnel } from '@/components/modules/dashboard/LoadStatusFunnel';
+import { RoleCards } from '@/components/modules/dashboard/RoleCards';
 import { AutoRefresh } from '@/components/realtime/AutoRefresh';
+import { canScope } from '@/lib/auth/rbac';
 import { formatCurrency, formatRpm } from '@/lib/utils';
 import {
   DollarSign, Truck, Package, TrendingUp,
   AlertTriangle, Users,
 } from 'lucide-react';
+
+async function getRoleCounts() {
+  const [grouped, clients, drivers] = await Promise.all([
+    db.user.groupBy({ by: ['role'], _count: { _all: true } }),
+    db.client.count(),
+    db.driver.count(),
+  ]);
+  const byRole: Record<string, number> = {};
+  grouped.forEach((g) => { byRole[g.role] = g._count._all; });
+  return {
+    admin: byRole.ADMIN ?? 0,
+    dispatcher: (byRole.DISPATCHER ?? 0) + (byRole.SENIOR_DISPATCHER ?? 0),
+    updater: byRole.UPDATER ?? 0,
+    finance: byRole.FINANCE ?? 0,
+    clients,
+    drivers,
+  };
+}
 
 async function getDashboardData() {
   const sevenDaysAgo = new Date();
@@ -69,6 +89,8 @@ async function getDashboardData() {
 export default async function DashboardPage() {
   const ctx = await getAuthContext();
   const data = await getDashboardData();
+  const canSeeTeam = ctx ? canScope(ctx.role, 'read', 'users') !== 'none' : false;
+  const roleCounts = canSeeTeam ? await getRoleCounts() : null;
 
   return (
     <div className="p-6 space-y-6">
@@ -150,6 +172,9 @@ export default async function DashboardPage() {
           <ActiveDriversList drivers={data.activeDrivers as any} />
         </div>
       </div>
+
+      {/* Role cards */}
+      {roleCounts && <RoleCards {...roleCounts} />}
 
       {/* Integration status */}
       <IntegrationStatus />
