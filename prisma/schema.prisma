@@ -237,6 +237,7 @@ model User {
   tasks               Task[]            @relation("AssignedTasks")
   tasksCreated        Task[]            @relation("CreatedTasks")
   auditLogs           AuditLog[]
+  activityLogs        ActivityLog[]
   accessLogs          AccessLog[]
   exportRequests      ExportRequest[]   @relation("RequestedBy")
   exportApprovals     ExportRequest[]   @relation("ApprovedBy")
@@ -438,11 +439,15 @@ model Load {
   pickupCity      String?
   pickupState     String?
   pickupZip       String?
+  pickupLat       Float?
+  pickupLng       Float?
   pickupAt        DateTime?
   deliveryAddress String?
   deliveryCity    String?
   deliveryState   String?
   deliveryZip     String?
+  deliveryLat     Float?
+  deliveryLng     Float?
   deliveryAt      DateTime?
 
   // Financials
@@ -787,4 +792,40 @@ model TelegramLink {
   used      Boolean  @default(false)
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+// ─── INTEGRATIONS (Dashboard "Интеграции" card) ───────────────────────────────
+
+model Integration {
+  id          String    @id @default(cuid())
+  type        String    // "ringcentral" | "gmail" | "telegram" | "mapbox" | ...
+  name        String
+  status      String    @default("disconnected") // "connected" | "disconnected" | "error"
+  isConnected Boolean   @default(false)
+  lastSyncAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([type])
+}
+
+// ─── ACTIVITY FEED (Dashboard "Недавняя активность") ──────────────────────────
+// Human-readable feed, distinct from AuditLog (which stores technical
+// before/after diffs for compliance). Written alongside AuditLog at the
+// same call sites, not a replacement for it.
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  actor       User?    @relation(fields: [actorId], references: [id])
+  entityType  String   // "Load" | "Client" | "Invoice" | "Communication" | ...
+  entityId    String?
+  action      String   // "created" | "status_changed" | "payment_received" | "message_received" | ...
+  title       String
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }

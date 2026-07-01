@@ -45,9 +45,15 @@ const USA_EXTENT = transformExtent([-127.5, 23, -65, 50.8], 'EPSG:4326', 'EPSG:3
 
 function statusColors(status: MarkerStatus, selected: boolean) {
   if (selected) return { fill: '#f59e0b', stroke: '#fef3c7' };
+  // Driver statuses (used by /map, /drivers)
   if (status === 'ON_LOAD') return { fill: '#60a5fa', stroke: '#dbeafe' };
   if (status === 'OFF_DUTY') return { fill: '#9ca3af', stroke: '#f3f4f6' };
   if (status === 'INACTIVE') return { fill: '#4b5563', stroke: '#d1d5db' };
+  // Route statuses (used by the dashboard fleet map, see MapLegend)
+  if (status === 'IN_TRANSIT') return { fill: '#3b82f6', stroke: '#bfdbfe' };
+  if (status === 'LOADING' || status === 'UNLOADING') return { fill: '#f59e0b', stroke: '#fde68a' };
+  if (status === 'WAITING') return { fill: '#8b5cf6', stroke: '#ddd6fe' };
+  if (status === 'IDLE' || status === 'PROBLEM') return { fill: '#ef4444', stroke: '#fecaca' };
   return { fill: '#4ade80', stroke: '#dcfce7' };
 }
 

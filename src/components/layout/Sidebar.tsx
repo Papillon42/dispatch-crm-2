@@ -10,24 +10,27 @@ import {
 import { cn } from '@/lib/utils';
 import { QuickAddCard } from '@/components/ui/QuickAddCard';
 
+// Russian nav copy per product reference. Order follows the reference's
+// primary list; Telegram Bot / AI Ассистент are existing pages kept at the
+// end of the main group rather than removed (не удаляем существующую архитектуру).
 const NAV_ITEMS = [
-  { label: 'Dashboard',      href: '/dashboard',        icon: LayoutDashboard },
-  { label: 'Clients',        href: '/clients',           icon: Users },
-  { label: 'Drivers',        href: '/drivers',           icon: UserCheck },
-  { label: 'Trucks',         href: '/trucks',            icon: Truck },
-  { label: 'Loads',          href: '/loads',             icon: Package },
-  { label: 'Map',            href: '/map',               icon: Map },
-  { label: 'Communications', href: '/communications',    icon: MessageSquare },
-  { label: 'Telegram Bot',   href: '/telegram',          icon: Send },
-  { label: 'Finance',        href: '/finance',           icon: DollarSign },
-  { label: 'Reports',        href: '/reports',           icon: BarChart2 },
-  { label: 'Documents',      href: '/documents',         icon: FileText },
-  { label: 'AI Assistant',   href: '/ai',                icon: Bot },
+  { label: 'Главная панель', href: '/dashboard',     icon: LayoutDashboard },
+  { label: 'Клиенты',        href: '/clients',        icon: Users },
+  { label: 'Драйверы',       href: '/drivers',         icon: UserCheck },
+  { label: 'Траки',          href: '/trucks',          icon: Truck },
+  { label: 'Грузы',          href: '/loads',           icon: Package },
+  { label: 'Карта',          href: '/map',             icon: Map },
+  { label: 'Финансы',        href: '/finance',         icon: DollarSign },
+  { label: 'Коммуникации',   href: '/communications',  icon: MessageSquare },
+  { label: 'Отчёты',         href: '/reports',         icon: BarChart2 },
+  { label: 'Документы',      href: '/documents',       icon: FileText },
+  { label: 'Telegram Бот',   href: '/telegram',        icon: Send },
+  { label: 'AI Ассистент',   href: '/ai',              icon: Bot },
 ];
 
 const BOTTOM_ITEMS = [
-  { label: 'Settings', href: '/settings', icon: Settings },
-  { label: 'Security',  href: '/security',  icon: Shield },
+  { label: 'Настройки',   href: '/settings', icon: Settings },
+  { label: 'Безопасность', href: '/security',  icon: Shield },
 ];
 
 export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
@@ -49,7 +52,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
           {!collapsed && (
             <div className="min-w-0">
               <p className="text-sm font-semibold text-text-primary truncate">Dispatch CRM</p>
-              <p className="text-2xs text-text-muted">Operations</p>
+              <p className="text-2xs text-text-muted">Операции</p>
             </div>
           )}
         </div>
