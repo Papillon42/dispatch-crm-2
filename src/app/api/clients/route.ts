@@ -37,6 +37,7 @@ export const GET = withAuth(async (req, ctx) => {
 
   const where: any = {
     ...scopeFilter,
+    deletedAt: null,
     ...(status && { status: status as any }),
     ...(search && {
       OR: [

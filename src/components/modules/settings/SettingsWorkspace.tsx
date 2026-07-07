@@ -75,11 +75,11 @@ export function SettingsWorkspace() {
         .input {
           width: 100%;
           border-radius: 0.375rem;
-          background: #242830;
-          border: 1px solid #2A2D36;
+          background: hsl(var(--background-hover));
+          border: 1px solid hsl(var(--border));
           padding: 0.5rem 0.75rem;
           font-size: 0.875rem;
-          color: #F1F3F7;
+          color: hsl(var(--text-primary));
         }
       `}</style>
     </div>

@@ -3,8 +3,11 @@
 import { useEffect, useState } from 'react';
 import {
   Search, RefreshCw, Plus, Truck as TruckIcon, X, ShieldAlert,
-  Wrench, FileText, Gauge,
+  Wrench, FileText, Gauge, Trash2,
 } from 'lucide-react';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useToast } from '@/components/providers/ToastProvider';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { LiveBadge } from '@/components/realtime/LiveBadge';
 import { usePolling } from '@/hooks/usePolling';
@@ -31,6 +34,10 @@ export function TrucksWorkspace() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const { user } = useCurrentUser();
+  const { showToast } = useToast();
 
   const { data: allTrucksForKpi, lastUpdatedAt } = usePolling<any>('/api/trucks?limit=100', { intervalMs: 15000 });
 
@@ -52,6 +59,26 @@ export function TrucksWorkspace() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
+
+  async function deleteTruck() {
+    if (!selected) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/trucks/${selected.id}`, { method: 'DELETE' });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error ?? 'Unable to delete truck');
+      showToast(`Truck #${selected.truckNumber} deleted`, 'success');
+      setShowDeleteConfirm(false);
+      setSelected(null);
+      fetchTrucks();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Unable to delete truck', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const canDelete = user?.role === 'ADMIN';
 
   const allTrucks: any[] = allTrucksForKpi?.trucks ?? [];
   const activeCount = allTrucks.filter((t) => t.maintenanceStatus !== 'OVERDUE' && t.maintenanceStatus !== 'IN_PROGRESS').length;
@@ -149,9 +176,21 @@ export function TrucksWorkspace() {
           <div className="right-panel">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
               <h2 className="text-sm font-semibold text-text-primary">Truck #{selected.truckNumber}</h2>
-              <button onClick={() => setSelected(null)} className="text-text-muted hover:text-text-primary">
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                {canDelete && (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="text-text-muted hover:text-danger"
+                    title="Delete truck"
+                    aria-label="Delete truck"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+                <button onClick={() => setSelected(null)} className="text-text-muted hover:text-text-primary">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="p-4 space-y-4">
               <div className="grid grid-cols-2 gap-y-3 gap-x-3 text-sm">
@@ -186,6 +225,16 @@ export function TrucksWorkspace() {
           </div>
         )}
       </div>
+
+      {showDeleteConfirm && selected && (
+        <ConfirmDialog
+          title="Delete truck"
+          message={`Delete truck #${selected.truckNumber}? It will be removed from active lists; historical loads and documents are kept.`}
+          busy={deleting}
+          onConfirm={deleteTruck}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
     </div>
   );
 }

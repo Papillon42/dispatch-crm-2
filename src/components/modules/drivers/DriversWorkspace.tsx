@@ -17,8 +17,12 @@ import {
   Truck,
   UserCheck,
   X,
+  Trash2,
 } from 'lucide-react';
 import { cn, formatDate, formatDateTime, formatNumber } from '@/lib/utils';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useToast } from '@/components/providers/ToastProvider';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 type DriverStatus = 'AVAILABLE' | 'ON_LOAD' | 'OFF_DUTY' | 'INACTIVE';
 
@@ -144,6 +148,10 @@ export function DriversWorkspace() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DriverRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const { user } = useCurrentUser();
+  const { showToast } = useToast();
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -249,6 +257,25 @@ export function DriversWorkspace() {
       setSaving(false);
     }
   }
+
+  async function deleteDriver() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/drivers/${deleteTarget.id}`, { method: 'DELETE' });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error ?? 'Unable to delete driver');
+      showToast(`Driver "${deleteTarget.fullName}" deleted`, 'success');
+      setDeleteTarget(null);
+      await loadDrivers();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Unable to delete driver', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const canDelete = user?.role === 'ADMIN';
 
   const availableCount = drivers.filter((driver) => driver.status === 'AVAILABLE').length;
   const onLoadCount = drivers.filter((driver) => driver.status === 'ON_LOAD').length;
@@ -373,20 +400,21 @@ export function DriversWorkspace() {
                 <th>Last Location</th>
                 <th>Activity</th>
                 <th>Dispatcher</th>
+                {canDelete && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 Array.from({ length: 6 }).map((_, index) => (
                   <tr key={index}>
-                    <td colSpan={9}>
+                    <td colSpan={canDelete ? 10 : 9}>
                       <div className="h-8 rounded bg-background-hover animate-pulse" />
                     </td>
                   </tr>
                 ))
               ) : drivers.length === 0 ? (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={canDelete ? 10 : 9}>
                     <div className="py-12 text-center">
                       <Truck className="h-8 w-8 text-text-muted mx-auto mb-3" />
                       <p className="text-sm font-medium text-text-primary">No drivers found</p>
@@ -467,6 +495,19 @@ export function DriversWorkspace() {
                         </div>
                       </td>
                       <td>{driver.dispatcher?.fullName ?? '-'}</td>
+                      {canDelete && (
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(driver)}
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-md text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                            aria-label={`Delete ${driver.fullName}`}
+                            title="Delete driver"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -475,6 +516,16 @@ export function DriversWorkspace() {
           </table>
         </div>
       </div>
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete driver"
+          message={`Delete "${deleteTarget.fullName}"? They will be removed from active lists; historical loads and documents are kept.`}
+          busy={deleting}
+          onConfirm={deleteDriver}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">

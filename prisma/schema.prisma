@@ -277,6 +277,7 @@ model Client {
   state             String?
   zip               String?
   notes             String?
+  deletedAt         DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
@@ -335,6 +336,7 @@ model Driver {
   score          Float        @default(100.0)
   hosAvailableUntil DateTime?
   notes          String?
+  deletedAt      DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -374,6 +376,7 @@ model Truck {
   make              String?
   model             String?
   notes             String?
+  deletedAt         DateTime?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 

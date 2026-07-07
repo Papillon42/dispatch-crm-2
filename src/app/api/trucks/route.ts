@@ -31,6 +31,7 @@ export const GET = withAuth(async (req, ctx) => {
 
   const where: any = {
     ...getClientFilter(ctx),
+    deletedAt: null,
     ...(maintenanceStatus && maintenanceStatus !== 'ALL' ? { maintenanceStatus } : {}),
     ...(search ? {
       OR: [

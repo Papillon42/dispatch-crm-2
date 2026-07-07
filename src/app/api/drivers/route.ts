@@ -25,9 +25,12 @@ export const GET = withAuth(async (req, ctx) => {
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 100);
   const search = searchParams.get('search')?.trim();
   const status = searchParams.get('status')?.trim();
+  const clientId = searchParams.get('clientId')?.trim();
 
   const where: any = {
     ...getDriverFilter(ctx),
+    deletedAt: null,
+    ...(clientId ? { clientId } : {}),
     ...(status && status !== 'ALL' ? { status: status as DriverStatus } : {}),
     ...(search ? {
       OR: [

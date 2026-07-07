@@ -9,10 +9,10 @@ export async function GET() {
 
   const user = await db.user.findUnique({
     where: { clerkId },
-    select: { fullName: true, role: true, isSenior: true },
+    select: { id: true, fullName: true, role: true, isSenior: true },
   });
 
-  if (!user) return NextResponse.json({ fullName: null, role: null });
+  if (!user) return NextResponse.json({ id: null, fullName: null, role: null });
 
   return NextResponse.json(user);
 }

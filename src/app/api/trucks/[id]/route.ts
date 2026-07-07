@@ -60,3 +60,23 @@ export const PATCH = withAuth(async (req, ctx, params) => {
 
   return NextResponse.json(truck);
 }, 'trucks', 'update');
+
+// DELETE /api/trucks/:id — soft delete (sets deletedAt). Load/document
+// history referencing this truck is left intact.
+export const DELETE = withAuth(async (req, ctx, params) => {
+  const id = params?.id;
+  if (!id) return NextResponse.json({ error: 'Missing truck ID' }, { status: 400 });
+
+  const existing = await db.truck.findUnique({ where: { id } });
+  if (!existing) return NextResponse.json({ error: 'Truck not found' }, { status: 404 });
+  if (existing.deletedAt) return NextResponse.json({ error: 'Truck already deleted' }, { status: 409 });
+
+  const deleted = await db.truck.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+
+  await audit({ actorId: ctx.userId, action: 'delete', entityType: 'Truck', entityId: id, before: existing, after: deleted });
+
+  return NextResponse.json({ ok: true });
+}, 'trucks', 'delete');

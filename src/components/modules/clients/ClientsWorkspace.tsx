@@ -14,8 +14,12 @@ import {
   Truck,
   UserRound,
   X,
+  Trash2,
 } from 'lucide-react';
 import { cn, formatDate, formatNumber } from '@/lib/utils';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useToast } from '@/components/providers/ToastProvider';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 type ClientStatus = 'ACTIVE' | 'WARNING' | 'INACTIVE' | 'AT_RISK';
 
@@ -123,6 +127,10 @@ export function ClientsWorkspace() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ClientRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const { user } = useCurrentUser();
+  const { showToast } = useToast();
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -220,6 +228,25 @@ export function ClientsWorkspace() {
 
   const activeCount = clients.filter((client) => client.status === 'ACTIVE').length;
   const trucksCount = clients.reduce((sum, client) => sum + client._count.trucks, 0);
+  async function deleteClient() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/clients/${deleteTarget.id}`, { method: 'DELETE' });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error ?? 'Unable to delete client');
+      showToast(`Client "${deleteTarget.companyName}" deleted`, 'success');
+      setDeleteTarget(null);
+      await loadClients();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Unable to delete client', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const canDelete = user?.role === 'ADMIN';
+
   const loadsCount = clients.reduce((sum, client) => sum + client._count.loads, 0);
 
   return (
@@ -332,20 +359,21 @@ export function ClientsWorkspace() {
                 <th>Fee</th>
                 <th>Dispatcher</th>
                 <th>Added</th>
+                {canDelete && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 Array.from({ length: 6 }).map((_, index) => (
                   <tr key={index}>
-                    <td colSpan={8}>
+                    <td colSpan={canDelete ? 9 : 8}>
                       <div className="h-8 rounded bg-background-hover animate-pulse" />
                     </td>
                   </tr>
                 ))
               ) : clients.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={canDelete ? 9 : 8}>
                     <div className="py-12 text-center">
                       <Building2 className="h-8 w-8 text-text-muted mx-auto mb-3" />
                       <p className="text-sm font-medium text-text-primary">No clients found</p>
@@ -404,6 +432,19 @@ export function ClientsWorkspace() {
                       <td>{client.dispatchFeePercent.toFixed(1)}%</td>
                       <td>{client.dispatcher?.fullName ?? '—'}</td>
                       <td>{formatDate(client.createdAt)}</td>
+                      {canDelete && (
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(client)}
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-md text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                            aria-label={`Delete ${client.companyName}`}
+                            title="Delete client"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -412,6 +453,16 @@ export function ClientsWorkspace() {
           </table>
         </div>
       </div>
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete client"
+          message={`Delete "${deleteTarget.companyName}"? They will be removed from active lists; historical trucks, drivers, and loads are kept.`}
+          busy={deleting}
+          onConfirm={deleteClient}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">

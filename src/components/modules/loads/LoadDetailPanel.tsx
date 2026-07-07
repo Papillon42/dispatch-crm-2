@@ -8,6 +8,10 @@ import {
 import { LoadStatusBadge } from '@/components/ui/StatusBadge';
 import { cn, formatCurrency, formatDate, formatDateTime, timeAgo } from '@/lib/utils';
 import { RouteMiniMap } from './RouteMiniMap';
+import { AssignDriverModal } from './AssignDriverModal';
+import { UploadDocumentModal } from './UploadDocumentModal';
+import { useToast } from '@/components/providers/ToastProvider';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 interface LoadDetailPanelProps {
   loadId: string;
@@ -45,6 +49,11 @@ export function LoadDetailPanel({ loadId, onClose, onChanged }: LoadDetailPanelP
   const [notes, setNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadDocType, setUploadDocType] = useState<string | undefined>(undefined);
+  const { showToast } = useToast();
+  const { user } = useCurrentUser();
 
   const fetchLoad = () => {
     setLoading(true);
@@ -65,12 +74,18 @@ export function LoadDetailPanel({ loadId, onClose, onChanged }: LoadDetailPanelP
   async function saveNotes() {
     setSavingNotes(true);
     try {
-      await fetch(`/api/loads/${loadId}`, {
+      const res = await fetch(`/api/loads/${loadId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes }),
       });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.error ?? 'Не удалось сохранить заметку');
+      }
       onChanged?.();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Не удалось сохранить заметку', 'error');
     } finally {
       setSavingNotes(false);
     }
@@ -84,32 +99,21 @@ export function LoadDetailPanel({ loadId, onClose, onChanged }: LoadDetailPanelP
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'CLOSED' }),
       });
-      if (res.ok) {
-        fetchLoad();
-        onChanged?.();
-      }
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error ?? 'Не удалось закрыть груз');
+      showToast('Груз закрыт', 'success');
+      fetchLoad();
+      onChanged?.();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Не удалось закрыть груз', 'error');
     } finally {
       setBusy(false);
     }
   }
 
-  async function quickUploadDoc(docType: string) {
-    setBusy(true);
-    try {
-      await fetch(`/api/loads/${loadId}/documents`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          docType,
-          fileName: DOC_LABELS[docType] ?? `${docType}.pdf`,
-          fileUrl: `https://storage.example.com/loads/${loadId}/${docType.toLowerCase()}.pdf`,
-        }),
-      });
-      fetchLoad();
-      onChanged?.();
-    } finally {
-      setBusy(false);
-    }
+  function openUploadModal(docType?: string) {
+    setUploadDocType(docType);
+    setShowUploadModal(true);
   }
 
   if (loading || !load) {
@@ -124,7 +128,8 @@ export function LoadDetailPanel({ loadId, onClose, onChanged }: LoadDetailPanelP
 
   const docCount = load.documents?.length ?? 0;
   const missingRequired = REQUIRED_DOCS.filter((t) => !load.documents?.some((d: any) => d.docType === t));
-  const canClose = load.status === 'PAID';
+  const canCloseByRole = !!user?.role && ['ADMIN', 'FINANCE', 'SENIOR_DISPATCHER'].includes(user.role);
+  const canClose = load.status === 'PAID' && canCloseByRole;
   const openIssues = (load.issues ?? []).filter((i: any) => i.status !== 'RESOLVED');
 
   return (
@@ -231,7 +236,7 @@ export function LoadDetailPanel({ loadId, onClose, onChanged }: LoadDetailPanelP
                   <button
                     key={t}
                     disabled={busy}
-                    onClick={() => quickUploadDoc(t)}
+                    onClick={() => openUploadModal(t)}
                     className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md border border-dashed border-border text-text-muted hover:text-text-primary hover:border-brand/50 transition-colors text-sm"
                   >
                     <Plus className="w-3.5 h-3.5" /> Add {DOC_LABELS[t]}
@@ -311,13 +316,14 @@ export function LoadDetailPanel({ loadId, onClose, onChanged }: LoadDetailPanelP
       <div className="p-3 border-t border-border-subtle space-y-2">
         <button
           disabled={busy}
+          onClick={() => setShowAssignModal(true)}
           className="w-full flex items-center justify-center gap-2 py-2 rounded-md bg-brand hover:bg-brand-dark text-white text-sm font-medium transition-colors disabled:opacity-50"
         >
           <UserPlus className="w-4 h-4" /> Assign Driver
         </button>
         <button
           disabled={busy}
-          onClick={() => quickUploadDoc(missingRequired[0] ?? 'OTHER')}
+          onClick={() => openUploadModal(missingRequired[0])}
           className="w-full flex items-center justify-center gap-2 py-2 rounded-md bg-background-hover hover:bg-background-card border border-border text-text-primary text-sm font-medium transition-colors disabled:opacity-50"
         >
           <Upload className="w-4 h-4" /> Upload Documents
@@ -325,12 +331,35 @@ export function LoadDetailPanel({ loadId, onClose, onChanged }: LoadDetailPanelP
         <button
           disabled={busy || !canClose}
           onClick={closeLoad}
-          title={canClose ? 'Close this load' : 'Load must be Paid before it can be closed'}
+          title={
+            !canCloseByRole ? 'Only Owner, Finance, or Senior Dispatcher can close a load'
+              : canClose ? 'Close this load'
+              : 'Load must be Paid before it can be closed'
+          }
           className="w-full flex items-center justify-center gap-2 py-2 rounded-md bg-danger/10 hover:bg-danger/20 border border-danger/30 text-danger text-sm font-medium transition-colors disabled:opacity-40"
         >
           {canClose ? <CheckCircle2 className="w-4 h-4" /> : <Lock className="w-4 h-4" />} Close Load
         </button>
       </div>
+
+      {showAssignModal && (
+        <AssignDriverModal
+          loadId={loadId}
+          clientId={load.clientId ?? load.client?.id}
+          currentDriverId={load.driverId}
+          onClose={() => setShowAssignModal(false)}
+          onAssigned={fetchLoad}
+        />
+      )}
+
+      {showUploadModal && (
+        <UploadDocumentModal
+          loadId={loadId}
+          defaultDocType={uploadDocType}
+          onClose={() => setShowUploadModal(false)}
+          onUploaded={fetchLoad}
+        />
+      )}
     </div>
   );
 }
