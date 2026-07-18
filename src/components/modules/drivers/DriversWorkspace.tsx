@@ -19,12 +19,17 @@ import {
   X,
   Trash2,
 } from 'lucide-react';
+import Link from 'next/link';
 import { cn, formatDate, formatDateTime, formatNumber } from '@/lib/utils';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useDriverStatuses } from '@/hooks/useDriverStatuses';
+import { useRealtime } from '@/hooks/useRealtime';
 import { useToast } from '@/components/providers/ToastProvider';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { DriverStatusBadge } from '@/components/ui/StatusBadge';
+import { ON_TRIP_STATUSES } from '@/lib/driverStatus';
 
-type DriverStatus = 'AVAILABLE' | 'ON_LOAD' | 'OFF_DUTY' | 'INACTIVE';
+type DriverStatus = string;
 
 type DriverRow = {
   id: string;
@@ -88,28 +93,6 @@ type CreateDriverForm = {
   notes: string;
 };
 
-const STATUS_OPTIONS: Array<{ value: 'ALL' | DriverStatus; label: string }> = [
-  { value: 'ALL', label: 'All' },
-  { value: 'AVAILABLE', label: 'Available' },
-  { value: 'ON_LOAD', label: 'On Load' },
-  { value: 'OFF_DUTY', label: 'Off Duty' },
-  { value: 'INACTIVE', label: 'Inactive' },
-];
-
-const STATUS_STYLES: Record<DriverStatus, string> = {
-  AVAILABLE: 'bg-green-500/15 text-green-400',
-  ON_LOAD: 'bg-blue-500/15 text-blue-400',
-  OFF_DUTY: 'bg-gray-500/15 text-gray-400',
-  INACTIVE: 'bg-red-500/15 text-red-400',
-};
-
-const STATUS_LABELS: Record<DriverStatus, string> = {
-  AVAILABLE: 'Available',
-  ON_LOAD: 'On Load',
-  OFF_DUTY: 'Off Duty',
-  INACTIVE: 'Inactive',
-};
-
 const EMPTY_FORM: CreateDriverForm = {
   clientId: '',
   fullName: '',
@@ -124,10 +107,6 @@ const EMPTY_FORM: CreateDriverForm = {
   preferredLanes: '',
   notes: '',
 };
-
-function DriverStatusPill({ status }: { status: DriverStatus }) {
-  return <span className={cn('badge', STATUS_STYLES[status])}>{STATUS_LABELS[status]}</span>;
-}
 
 function cdlLabel(driver: DriverRow) {
   const parts = [driver.cdlState, driver.cdlNumber].filter(Boolean);
@@ -156,6 +135,12 @@ export function DriversWorkspace() {
   const { user } = useCurrentUser();
   const { showToast } = useToast();
   const searchParams = useSearchParams();
+  const { statuses: statusConfigs } = useDriverStatuses();
+
+  const STATUS_OPTIONS: Array<{ value: 'ALL' | DriverStatus; label: string }> = [
+    { value: 'ALL', label: 'All' },
+    ...statusConfigs.map((s) => ({ value: s.code, label: s.label })),
+  ];
 
   useEffect(() => {
     if (searchParams.get('new') === '1') setIsCreateOpen(true);
@@ -283,10 +268,17 @@ export function DriversWorkspace() {
     }
   }
 
+  // Live updates: refresh the table when any driver status/location changes
+  useRealtime({
+    onEvent: () => {
+      void loadDrivers();
+    },
+  });
+
   const canDelete = user?.role === 'ADMIN';
 
   const availableCount = drivers.filter((driver) => driver.status === 'AVAILABLE').length;
-  const onLoadCount = drivers.filter((driver) => driver.status === 'ON_LOAD').length;
+  const onLoadCount = drivers.filter((driver) => ON_TRIP_STATUSES.includes(driver.status)).length;
   const linkedTelegramCount = drivers.filter((driver) => driver.telegramChatId).length;
   const expiringCdlCount = drivers.filter(isCdlExpiring).length;
 
@@ -450,7 +442,9 @@ export function DriversWorkspace() {
                             </div>
                           )}
                           <div>
-                            <p className="font-medium text-text-primary">{driver.fullName}</p>
+                            <Link href={`/drivers/${driver.id}`} className="font-medium text-text-primary hover:text-brand-light transition-colors">
+                              {driver.fullName}
+                            </Link>
                             <div className="mt-1 flex flex-col gap-0.5 text-xs text-text-muted">
                               {driver.phone && (
                                 <span className="inline-flex items-center gap-1">
@@ -468,7 +462,7 @@ export function DriversWorkspace() {
                           </div>
                         </div>
                       </td>
-                      <td><DriverStatusPill status={driver.status} /></td>
+                      <td><DriverStatusBadge status={driver.status} configs={statusConfigs} /></td>
                       <td>{driver.client?.companyName ?? '-'}</td>
                       <td>
                         {driver.currentTruck ? (

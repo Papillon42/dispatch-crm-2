@@ -4,6 +4,7 @@ import { getDriverAppAuthContext } from '@/lib/auth/driverApp';
 import { db } from '@/lib/db';
 import { audit } from '@/lib/audit';
 import { isValidStatusTransition } from '@/lib/auth/rbac';
+import { syncDriverFromLoadStatus } from '@/lib/services/driverStatus.service';
 import { LoadStatus } from '@prisma/client';
 
 const DRIVER_ALLOWED_STATUSES: LoadStatus[] = [
@@ -44,6 +45,9 @@ export async function POST(req: Request) {
   ]);
 
   await audit({ action: 'status_change', entityType: 'Load', entityId: loadId, before: { status: load.status }, after: { status } });
+
+  // Sync the driver's operational status (system actor — no CRM user session)
+  await syncDriverFromLoadStatus({ userId: null, role: 'SYSTEM' }, loadId, status, {}).catch(() => null);
 
   return NextResponse.json(updated);
 }

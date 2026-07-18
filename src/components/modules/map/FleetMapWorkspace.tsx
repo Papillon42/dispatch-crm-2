@@ -1,131 +1,193 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   AlertTriangle,
+  CalendarClock,
   Clock,
+  Filter,
   LocateFixed,
   Navigation,
+  Package,
   RefreshCw,
+  Satellite,
   Search,
   Truck,
   UserRound,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
-import { cn, formatDateTime, formatNumber } from '@/lib/utils';
-import { OpenLayersUsaMap, type OpenLayersMarker } from './OpenLayersUsaMap';
-
-type DriverStatus = 'AVAILABLE' | 'ON_LOAD' | 'OFF_DUTY' | 'INACTIVE';
+import { cn, formatDateTime, formatNumber, timeAgo } from '@/lib/utils';
+import { DriverStatusBadge } from '@/components/ui/StatusBadge';
+import { useRealtime } from '@/hooks/useRealtime';
+import { haversineMiles, statusMeta } from '@/lib/driverStatus';
+import type { DriverStatusConfigRow } from '@/hooks/useDriverStatuses';
+import { OpenLayersUsaMap, type OpenLayersMarker, type OpenLayersRouteArc } from './OpenLayersUsaMap';
 
 type DriverMapRow = {
   id: string;
   fullName: string;
   phone: string | null;
-  status: DriverStatus;
-  client: { id: string; companyName: string } | null;
-  currentTruck: { truckNumber: string; trailerType: string } | null;
+  avatarUrl: string | null;
+  status: string;
+  statusUpdatedAt: string | null;
+  statusComment: string | null;
+  currentLat: number | null;
+  currentLng: number | null;
+  currentLocationLabel: string | null;
+  currentLocationUpdatedAt: string | null;
+  currentEta: string | null;
+  client: { id: string; companyName: string; mc: string | null; dot: string | null } | null;
   dispatcher: { id: string; fullName: string } | null;
   updater: { id: string; fullName: string } | null;
-  locationUpdates: Array<{
-    id: string;
-    lat: number;
-    lng: number;
-    label: string | null;
-    eta: string | null;
-    etaLabel: string | null;
-    at: string;
-  }>;
-  loads: Array<{
-    id: string;
-    loadCode: string;
-    status: string;
-    pickupCity: string | null;
-    pickupState: string | null;
-    deliveryCity: string | null;
-    deliveryState: string | null;
-    issues: Array<{ id: string; type: string }>;
-  }>;
+  statusUpdatedBy: { id: string; fullName: string } | null;
+  currentTruck: { id: string; truckNumber: string; trailerType: string } | null;
+  currentTrailer: { id: string; trailerNumber: string | null; type: string } | null;
+  currentLoad: {
+    id: string; loadCode: string; status: string;
+    pickupAddress: string | null; pickupCity: string | null; pickupState: string | null;
+    pickupLat: number | null; pickupLng: number | null;
+    deliveryAddress: string | null; deliveryCity: string | null; deliveryState: string | null;
+    deliveryLat: number | null; deliveryLng: number | null;
+    estimatedArrivalAt: string | null; actualDepartureAt: string | null; loadedAt: string | null;
+    totalMiles: number | null;
+  } | null;
+  locationUpdates: Array<{ lat: number; lng: number; label: string | null; at: string; eta: string | null; etaLabel: string | null }>;
+  loads: Array<{ id: string; loadCode: string; status: string }>;
 };
 
 type DriversResponse = {
   drivers: DriverMapRow[];
+  statuses: DriverStatusConfigRow[];
+  gpsStaleMinutes: number;
 };
 
-const STATUS_OPTIONS: Array<{ value: 'ALL' | DriverStatus; label: string }> = [
-  { value: 'ALL', label: 'All' },
-  { value: 'ON_LOAD', label: 'On Load' },
-  { value: 'AVAILABLE', label: 'Available' },
-  { value: 'OFF_DUTY', label: 'Off Duty' },
-  { value: 'INACTIVE', label: 'Inactive' },
-];
+type QuickFilter = 'ALL' | 'WITH_LOAD' | 'NO_LOAD' | 'STALE_GPS' | 'OVERDUE_ETA';
 
-function latestLocation(driver: DriverMapRow) {
-  return driver.locationUpdates[0] ?? null;
+function positionOf(driver: DriverMapRow): { lat: number; lng: number; at: string | null; label: string | null } | null {
+  if (driver.currentLat != null && driver.currentLng != null) {
+    return {
+      lat: driver.currentLat,
+      lng: driver.currentLng,
+      at: driver.currentLocationUpdatedAt,
+      label: driver.currentLocationLabel,
+    };
+  }
+  const fallback = driver.locationUpdates[0];
+  if (fallback) return { lat: fallback.lat, lng: fallback.lng, at: fallback.at, label: fallback.label };
+  return null;
 }
 
-function routeLabel(load: DriverMapRow['loads'][number] | undefined) {
-  if (!load) return 'No active load';
-  const pickup = [load.pickupCity, load.pickupState].filter(Boolean).join(', ') || 'Pickup TBD';
-  const delivery = [load.deliveryCity, load.deliveryState].filter(Boolean).join(', ') || 'Delivery TBD';
-  return `${pickup} -> ${delivery}`;
+function place(load: DriverMapRow['currentLoad'], kind: 'pickup' | 'delivery'): string {
+  if (!load) return '—';
+  const addr = kind === 'pickup' ? load.pickupAddress : load.deliveryAddress;
+  const city = kind === 'pickup' ? [load.pickupCity, load.pickupState] : [load.deliveryCity, load.deliveryState];
+  return addr ?? (city.filter(Boolean).join(', ') || '—');
 }
 
 export function FleetMapWorkspace() {
   const [drivers, setDrivers] = useState<DriverMapRow[]>([]);
-  const [status, setStatus] = useState<'ALL' | DriverStatus>('ALL');
+  const [statusConfigs, setStatusConfigs] = useState<DriverStatusConfigRow[]>([]);
+  const [gpsStaleMinutes, setGpsStaleMinutes] = useState(30);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | string>('ALL');
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>('ALL');
+  const [dispatcherFilter, setDispatcherFilter] = useState<'ALL' | string>('ALL');
+  const [companyFilter, setCompanyFilter] = useState<'ALL' | string>('ALL');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadDrivers = useCallback(async () => {
-    setLoading(true);
+  const loadDrivers = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
 
     try {
       const params = new URLSearchParams();
-      if (status !== 'ALL') params.set('status', status);
+      if (statusFilter !== 'ALL') params.set('status', statusFilter);
+      if (quickFilter === 'WITH_LOAD') params.set('hasLoad', '1');
+      if (quickFilter === 'NO_LOAD') params.set('hasLoad', '0');
+      if (quickFilter === 'STALE_GPS') params.set('staleGps', '1');
+      if (quickFilter === 'OVERDUE_ETA') params.set('overdueEta', '1');
+      if (dispatcherFilter !== 'ALL') params.set('dispatcherId', dispatcherFilter);
+      if (companyFilter !== 'ALL') params.set('clientId', companyFilter);
 
       const res = await fetch(`/api/map/drivers?${params.toString()}`, { cache: 'no-store' });
       const payload = await res.json().catch(() => null);
 
       if (!res.ok) throw new Error(payload?.error ?? 'Unable to load fleet map');
-      setDrivers((payload as DriversResponse).drivers);
+      const data = payload as DriversResponse;
+      setDrivers(data.drivers);
+      setStatusConfigs(data.statuses);
+      setGpsStaleMinutes(data.gpsStaleMinutes);
+      setLastLoadedAt(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load fleet map');
-      setDrivers([]);
+      if (!silent) setDrivers([]);
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, [statusFilter, quickFilter, dispatcherFilter, companyFilter]);
 
   useEffect(() => {
     void loadDrivers();
   }, [loadDrivers]);
 
+  // Realtime: debounce-refresh on driver status/location events (no page reload)
+  const { connectionState, lastEventAt } = useRealtime({
+    onEvent: () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => void loadDrivers(true), 400);
+    },
+  });
+
+  // Polling fallback (SSE down / multi-instance deployments)
+  useEffect(() => {
+    const timer = setInterval(() => void loadDrivers(true), connectionState === 'connected' ? 60_000 : 15_000);
+    return () => clearInterval(timer);
+  }, [loadDrivers, connectionState]);
+
+  const dispatchers = useMemo(() => {
+    const map = new Map<string, string>();
+    drivers.forEach((d) => { if (d.dispatcher) map.set(d.dispatcher.id, d.dispatcher.fullName); });
+    return Array.from(map, ([id, name]) => ({ id, name }));
+  }, [drivers]);
+
+  const companies = useMemo(() => {
+    const map = new Map<string, string>();
+    drivers.forEach((d) => { if (d.client) map.set(d.client.id, d.client.companyName); });
+    return Array.from(map, ([id, name]) => ({ id, name }));
+  }, [drivers]);
+
   const visibleDrivers = useMemo(() => {
     const term = search.trim().toLowerCase();
+    if (!term) return drivers;
     return drivers.filter((driver) => {
-      const load = driver.loads[0];
       const haystack = [
         driver.fullName,
         driver.phone,
         driver.client?.companyName,
+        driver.client?.mc,
+        driver.client?.dot,
         driver.currentTruck?.truckNumber,
-        latestLocation(driver)?.label,
-        load?.loadCode,
-        routeLabel(load),
+        driver.currentTrailer?.trailerNumber,
+        driver.currentLoad?.loadCode,
+        positionOf(driver)?.label,
       ].filter(Boolean).join(' ').toLowerCase();
-
-      return !term || haystack.includes(term);
+      return haystack.includes(term);
     });
   }, [drivers, search]);
 
-  const mappedDrivers = visibleDrivers.filter((driver) => latestLocation(driver));
-  const selectedDriver = visibleDrivers.find((driver) => driver.id === selectedId) ?? mappedDrivers[0] ?? null;
-  const selectedLocation = selectedDriver ? latestLocation(selectedDriver) : null;
-  const activeIssues = visibleDrivers.reduce((sum, driver) => sum + (driver.loads[0]?.issues.length ?? 0), 0);
+  const mappedDrivers = visibleDrivers.filter((driver) => positionOf(driver));
+  const selectedDriver = visibleDrivers.find((driver) => driver.id === selectedId) ?? null;
+  const selectedPosition = selectedDriver ? positionOf(selectedDriver) : null;
+
   const mapMarkers: OpenLayersMarker[] = mappedDrivers.map((driver) => {
-    const location = latestLocation(driver)!;
+    const location = positionOf(driver)!;
+    const meta = statusMeta(driver.status, statusConfigs);
     return {
       id: driver.id,
       label: driver.fullName,
@@ -133,35 +195,91 @@ export function FleetMapWorkspace() {
       lat: location.lat,
       lng: location.lng,
       status: driver.status,
+      color: meta.color,
+      avatarUrl: driver.avatarUrl,
     };
   });
-  const selectedPopup = selectedDriver && selectedLocation
+
+  // Route line pickup -> delivery for the selected driver's active load
+  const mapRoutes: OpenLayersRouteArc[] = useMemo(() => {
+    if (!selectedDriver?.currentLoad) return [];
+    const load = selectedDriver.currentLoad;
+    if (load.pickupLat == null || load.pickupLng == null || load.deliveryLat == null || load.deliveryLng == null) return [];
+    return [{
+      id: selectedDriver.id,
+      from: { lat: load.pickupLat, lng: load.pickupLng },
+      to: { lat: load.deliveryLat, lng: load.deliveryLng },
+      status: selectedDriver.status,
+      color: statusMeta(selectedDriver.status, statusConfigs).color,
+    }];
+  }, [selectedDriver, statusConfigs]);
+
+  const remainingMiles = useMemo(() => {
+    if (!selectedDriver?.currentLoad || !selectedPosition) return null;
+    const load = selectedDriver.currentLoad;
+    if (load.deliveryLat == null || load.deliveryLng == null) return null;
+    return Math.round(haversineMiles(
+      { lat: selectedPosition.lat, lng: selectedPosition.lng },
+      { lat: load.deliveryLat, lng: load.deliveryLng },
+    ));
+  }, [selectedDriver, selectedPosition]);
+
+  const isGpsStale = useCallback((driver: DriverMapRow) => {
+    const pos = positionOf(driver);
+    if (!pos?.at) return true;
+    return Date.now() - new Date(pos.at).getTime() > gpsStaleMinutes * 60_000;
+  }, [gpsStaleMinutes]);
+
+  const selectedPopup = selectedDriver && selectedPosition
     ? {
-      title: selectedDriver.fullName,
+      title: `${selectedDriver.fullName} · ${statusMeta(selectedDriver.status, statusConfigs).label}`,
       rows: [
-        selectedDriver.currentTruck?.truckNumber ?? 'No truck',
-        selectedLocation.label ?? 'Location update',
-      ],
+        `Truck: ${selectedDriver.currentTruck?.truckNumber ?? '—'} · Trailer: ${selectedDriver.currentTrailer?.trailerNumber ?? '—'}`,
+        selectedDriver.currentLoad ? `Load: ${selectedDriver.currentLoad.loadCode}` : 'No active load',
+        selectedDriver.currentLoad ? `${place(selectedDriver.currentLoad, 'pickup')} → ${place(selectedDriver.currentLoad, 'delivery')}` : '',
+        selectedPosition.label ? `Now: ${selectedPosition.label}` : '',
+        remainingMiles != null ? `Distance remaining: ${formatNumber(remainingMiles)} mi` : '',
+        selectedDriver.currentEta ?? selectedDriver.currentLoad?.estimatedArrivalAt
+          ? `ETA: ${formatDateTime(selectedDriver.currentEta ?? selectedDriver.currentLoad?.estimatedArrivalAt ?? null)}`
+          : '',
+        selectedPosition.at ? `Last GPS: ${timeAgo(selectedPosition.at)}` : 'No GPS data',
+      ].filter(Boolean),
     }
     : null;
+
+  const QUICK_FILTERS: Array<{ value: QuickFilter; label: string }> = [
+    { value: 'ALL', label: 'All drivers' },
+    { value: 'WITH_LOAD', label: 'With load' },
+    { value: 'NO_LOAD', label: 'Without load' },
+    { value: 'OVERDUE_ETA', label: 'Overdue ETA' },
+    { value: 'STALE_GPS', label: 'Stale GPS' },
+  ];
 
   return (
     <div className="h-full min-h-screen flex flex-col bg-background">
       <div className="px-6 py-5 border-b border-border-subtle flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Fleet Map</h1>
-          <p className="text-sm text-text-secondary mt-1">
-            {formatNumber(mappedDrivers.length)} mapped drivers · {formatNumber(visibleDrivers.length)} visible
+          <p className="text-sm text-text-secondary mt-1 flex items-center gap-3">
+            <span>{formatNumber(mappedDrivers.length)} mapped · {formatNumber(visibleDrivers.length)} visible</span>
+            <span className={cn(
+              'inline-flex items-center gap-1.5 text-xs',
+              connectionState === 'connected' ? 'text-success' : 'text-amber-400',
+            )}>
+              {connectionState === 'connected' ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+              {connectionState === 'connected' ? 'Realtime connected' : 'Realtime reconnecting — polling fallback'}
+            </span>
+            {lastLoadedAt && <span className="text-xs text-text-muted">updated {timeAgo(lastLoadedAt)}</span>}
           </p>
         </div>
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="relative w-full lg:w-[340px]">
+          <div className="relative w-full lg:w-[360px]">
             <Search className="h-4 w-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search driver, truck, load, location"
+              placeholder="Driver, phone, truck, trailer, load, MC, DOT, company"
               className="h-10 w-full rounded-md border border-border bg-background-secondary pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-border-focus"
             />
           </div>
@@ -177,15 +295,47 @@ export function FleetMapWorkspace() {
         </div>
       </div>
 
-      <div className="px-6 py-3 border-b border-border-subtle flex flex-wrap gap-2">
-        {STATUS_OPTIONS.map((option) => (
+      <div className="px-6 py-3 border-b border-border-subtle flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setStatusFilter('ALL')}
+          className={cn(
+            'h-9 rounded-md border px-3 text-sm transition-colors',
+            statusFilter === 'ALL'
+              ? 'border-brand bg-brand-muted text-brand-light'
+              : 'border-border bg-background-secondary text-text-secondary hover:text-text-primary hover:bg-background-hover',
+          )}
+        >
+          All statuses
+        </button>
+        {statusConfigs.map((config) => (
+          <button
+            key={config.code}
+            type="button"
+            onClick={() => setStatusFilter(config.code)}
+            className={cn(
+              'h-9 rounded-md border px-3 text-sm transition-colors inline-flex items-center gap-2',
+              statusFilter === config.code
+                ? 'border-brand bg-brand-muted text-brand-light'
+                : 'border-border bg-background-secondary text-text-secondary hover:text-text-primary hover:bg-background-hover',
+            )}
+          >
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: config.color }} />
+            {config.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="px-6 py-3 border-b border-border-subtle flex flex-wrap items-center gap-2">
+        <Filter className="h-4 w-4 text-text-muted" />
+        {QUICK_FILTERS.map((option) => (
           <button
             key={option.value}
             type="button"
-            onClick={() => setStatus(option.value)}
+            onClick={() => setQuickFilter(option.value)}
             className={cn(
-              'h-9 rounded-md border px-3 text-sm transition-colors',
-              status === option.value
+              'h-8 rounded-md border px-2.5 text-xs transition-colors',
+              quickFilter === option.value
                 ? 'border-brand bg-brand-muted text-brand-light'
                 : 'border-border bg-background-secondary text-text-secondary hover:text-text-primary hover:bg-background-hover',
             )}
@@ -193,6 +343,22 @@ export function FleetMapWorkspace() {
             {option.label}
           </button>
         ))}
+        <select
+          value={dispatcherFilter}
+          onChange={(e) => setDispatcherFilter(e.target.value)}
+          className="h-8 rounded-md border border-border bg-background-secondary px-2 text-xs text-text-secondary outline-none"
+        >
+          <option value="ALL">All dispatchers</option>
+          {dispatchers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+        <select
+          value={companyFilter}
+          onChange={(e) => setCompanyFilter(e.target.value)}
+          className="h-8 rounded-md border border-border bg-background-secondary px-2 text-xs text-text-secondary outline-none"
+        >
+          <option value="ALL">All companies</option>
+          {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
       </div>
 
       {error && (
@@ -202,15 +368,16 @@ export function FleetMapWorkspace() {
         </div>
       )}
 
-      <div className="grid flex-1 min-h-[680px] grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid flex-1 min-h-[680px] grid-cols-1 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="relative min-h-[520px]">
           <OpenLayersUsaMap
             markers={mapMarkers}
+            routes={mapRoutes}
             selectedId={selectedDriver?.id}
             onSelect={setSelectedId}
             loading={loading}
             popup={selectedPopup}
-            emptyLabel="No trucks have location updates yet. Once a driver location is added, the marker will appear on this USA map."
+            emptyLabel="No drivers have GPS positions yet. Add a location update and markers will appear here."
             className="min-h-[520px]"
           />
         </div>
@@ -222,14 +389,16 @@ export function FleetMapWorkspace() {
               <p className="text-xl font-bold text-text-primary mt-1">{mappedDrivers.length}</p>
             </div>
             <div className="p-4 border-l border-border-subtle">
-              <p className="text-2xs uppercase tracking-wider text-text-muted">On Load</p>
+              <p className="text-2xs uppercase tracking-wider text-text-muted">In Transit</p>
               <p className="text-xl font-bold text-text-primary mt-1">
-                {visibleDrivers.filter((driver) => driver.status === 'ON_LOAD').length}
+                {visibleDrivers.filter((driver) => driver.status === 'IN_TRANSIT').length}
               </p>
             </div>
             <div className="p-4 border-l border-border-subtle">
-              <p className="text-2xs uppercase tracking-wider text-text-muted">Issues</p>
-              <p className="text-xl font-bold text-text-primary mt-1">{activeIssues}</p>
+              <p className="text-2xs uppercase tracking-wider text-text-muted">Stale GPS</p>
+              <p className="text-xl font-bold text-text-primary mt-1">
+                {visibleDrivers.filter((driver) => isGpsStale(driver)).length}
+              </p>
             </div>
           </div>
 
@@ -237,34 +406,60 @@ export function FleetMapWorkspace() {
             <div className="p-4 border-b border-border-subtle">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-semibold text-text-primary">{selectedDriver.fullName}</h2>
-                  <p className="text-sm text-text-secondary mt-1">{selectedDriver.client?.companyName ?? 'No client assigned'}</p>
+                  <Link href={`/drivers/${selectedDriver.id}`} className="text-base font-semibold text-text-primary hover:text-brand-light transition-colors">
+                    {selectedDriver.fullName}
+                  </Link>
+                  <p className="text-sm text-text-secondary mt-1">{selectedDriver.client?.companyName ?? 'No company'}</p>
                 </div>
-                <span className={cn('badge', selectedDriver.status === 'ON_LOAD' ? 'bg-blue-500/15 text-blue-400' : 'bg-green-500/15 text-green-400')}>
-                  {selectedDriver.status.replace(/_/g, ' ')}
-                </span>
+                <DriverStatusBadge status={selectedDriver.status} configs={statusConfigs} />
               </div>
 
-              <div className="mt-4 space-y-3 text-sm">
+              <div className="mt-4 space-y-2.5 text-sm">
                 <div className="flex items-center gap-2 text-text-secondary">
-                  <Truck className="h-4 w-4 text-text-muted" />
-                  {selectedDriver.currentTruck?.truckNumber ?? 'No truck assigned'}
+                  <Truck className="h-4 w-4 text-text-muted flex-shrink-0" />
+                  <span>
+                    {selectedDriver.currentTruck?.truckNumber ?? 'No truck'}
+                    {selectedDriver.currentTrailer?.trailerNumber && ` · TL ${selectedDriver.currentTrailer.trailerNumber}`}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-text-secondary">
-                  <Navigation className="h-4 w-4 text-text-muted" />
-                  {routeLabel(selectedDriver.loads[0])}
+                  <Package className="h-4 w-4 text-text-muted flex-shrink-0" />
+                  <span>{selectedDriver.currentLoad?.loadCode ?? 'No active load'}</span>
                 </div>
                 <div className="flex items-center gap-2 text-text-secondary">
-                  <LocateFixed className="h-4 w-4 text-text-muted" />
-                  {selectedLocation?.label ?? 'No latest location'}
+                  <Navigation className="h-4 w-4 text-text-muted flex-shrink-0" />
+                  <span className="truncate">
+                    {selectedDriver.currentLoad
+                      ? `${place(selectedDriver.currentLoad, 'pickup')} → ${place(selectedDriver.currentLoad, 'delivery')}`
+                      : 'No route'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-text-secondary">
-                  <Clock className="h-4 w-4 text-text-muted" />
-                  {selectedLocation ? formatDateTime(selectedLocation.at) : '—'}
+                  <LocateFixed className="h-4 w-4 text-text-muted flex-shrink-0" />
+                  <span>{selectedPosition?.label ?? (selectedPosition ? `${selectedPosition.lat.toFixed(3)}, ${selectedPosition.lng.toFixed(3)}` : 'No GPS')}</span>
+                </div>
+                {remainingMiles != null && (
+                  <div className="flex items-center gap-2 text-text-secondary">
+                    <Navigation className="h-4 w-4 text-text-muted flex-shrink-0" />
+                    <span>Distance remaining: {formatNumber(remainingMiles)} mi</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-text-secondary">
+                  <CalendarClock className="h-4 w-4 text-text-muted flex-shrink-0" />
+                  <span>
+                    ETA: {formatDateTime(selectedDriver.currentEta ?? selectedDriver.currentLoad?.estimatedArrivalAt ?? null)}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-text-secondary">
-                  <UserRound className="h-4 w-4 text-text-muted" />
-                  {selectedDriver.dispatcher?.fullName ?? 'No dispatcher'}
+                  <Clock className="h-4 w-4 text-text-muted flex-shrink-0" />
+                  <span className={cn(isGpsStale(selectedDriver) && 'text-amber-300')}>
+                    Last GPS: {selectedPosition?.at ? timeAgo(selectedPosition.at) : 'never'}
+                    {isGpsStale(selectedDriver) && ' · stale'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-text-secondary">
+                  <UserRound className="h-4 w-4 text-text-muted flex-shrink-0" />
+                  <span>{selectedDriver.dispatcher?.fullName ?? 'No dispatcher'}</span>
                 </div>
               </div>
             </div>
@@ -272,8 +467,8 @@ export function FleetMapWorkspace() {
 
           <div className="divide-y divide-border-subtle">
             {visibleDrivers.map((driver) => {
-              const location = latestLocation(driver);
-              const load = driver.loads[0];
+              const location = positionOf(driver);
+              const meta = statusMeta(driver.status, statusConfigs);
 
               return (
                 <button
@@ -288,19 +483,34 @@ export function FleetMapWorkspace() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-medium text-text-primary truncate">{driver.fullName}</p>
-                      <p className="text-xs text-text-muted mt-1 truncate">{driver.currentTruck?.truckNumber ?? 'No truck'} · {driver.client?.companyName ?? 'No client'}</p>
+                      <p className="text-xs text-text-muted mt-1 truncate">
+                        {driver.currentTruck?.truckNumber ?? 'No truck'} · {driver.client?.companyName ?? 'No company'}
+                      </p>
                     </div>
-                    <span className={cn('h-2.5 w-2.5 rounded-full flex-shrink-0 mt-1.5', driver.status === 'ON_LOAD' ? 'bg-blue-400' : 'bg-green-400')} />
+                    <span
+                      className="h-2.5 w-2.5 rounded-full flex-shrink-0 mt-1.5"
+                      style={{ backgroundColor: meta.color }}
+                      title={meta.label}
+                    />
                   </div>
-                  <p className="text-xs text-text-secondary mt-2 truncate">{routeLabel(load)}</p>
-                  <p className="text-xs text-text-muted mt-1 truncate">{location?.label ?? 'No location update'}</p>
+                  <p className="text-xs text-text-secondary mt-2 truncate">
+                    {driver.currentLoad
+                      ? `${driver.currentLoad.loadCode} · ${place(driver.currentLoad, 'pickup')} → ${place(driver.currentLoad, 'delivery')}`
+                      : 'No active load'}
+                  </p>
+                  <p className={cn('text-xs mt-1 truncate', isGpsStale(driver) ? 'text-amber-300' : 'text-text-muted')}>
+                    {location
+                      ? `${location.label ?? `${location.lat.toFixed(2)}, ${location.lng.toFixed(2)}`}${location.at ? ` · ${timeAgo(location.at)}` : ''}`
+                      : 'No GPS data'}
+                    {isGpsStale(driver) && location && ' · stale'}
+                  </p>
                 </button>
               );
             })}
 
             {!loading && visibleDrivers.length === 0 && (
               <div className="p-8 text-center">
-                <Truck className="h-8 w-8 mx-auto text-text-muted mb-3" />
+                <Satellite className="h-8 w-8 mx-auto text-text-muted mb-3" />
                 <p className="text-sm font-medium text-text-primary">No drivers found</p>
                 <p className="text-sm text-text-secondary mt-1">Adjust the filters or add location updates.</p>
               </div>

@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { DriverStatus } from '@prisma/client';
 import { z } from 'zod';
 import { withAuth, getClientFilter, getDriverFilter } from '@/lib/auth/rbac';
 import { db } from '@/lib/db';
@@ -32,7 +31,7 @@ export const GET = withAuth(async (req, ctx) => {
     ...getDriverFilter(ctx),
     deletedAt: null,
     ...(clientId ? { clientId } : {}),
-    ...(status && status !== 'ALL' ? { status: status as DriverStatus } : {}),
+    ...(status && status !== 'ALL' ? { status } : {}),
     ...(search ? {
       OR: [
         { fullName: { contains: search, mode: 'insensitive' } },

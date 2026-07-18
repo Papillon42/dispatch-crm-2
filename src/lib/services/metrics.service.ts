@@ -3,7 +3,7 @@
 // need to do math themselves.
 
 import { db } from '@/lib/db';
-import type { LoadStatus, DriverStatus } from '@prisma/client';
+import type { LoadStatus } from '@prisma/client';
 import { formatCurrency, formatRpm } from '@/lib/utils';
 import type { Metric, Trend } from './types';
 
@@ -15,10 +15,12 @@ export const ACTIVE_LOAD_STATUSES: LoadStatus[] = [
   'LOADED', 'IN_TRANSIT', 'AT_DELIVERY', 'PROBLEM',
 ];
 
-// Driver states that count as "on duty" for the Active Drivers KPI.
-// Schema only has AVAILABLE / ON_LOAD / OFF_DUTY / INACTIVE, so
-// "active" = available for dispatch or currently on a load.
-export const ACTIVE_DRIVER_STATUSES: DriverStatus[] = ['AVAILABLE', 'ON_LOAD'];
+// Driver states that count as "on duty" for the Active Drivers KPI:
+// available for dispatch or anywhere on the operational trip pipeline.
+export const ACTIVE_DRIVER_STATUSES: string[] = [
+  'AVAILABLE', 'ASSIGNED', 'TO_PICKUP', 'AT_PICKUP', 'LOADING',
+  'ON_LOAD', 'IN_TRANSIT', 'AT_DELIVERY', 'UNLOADING', 'DELIVERED',
+];
 
 function monthRange(monthsAgo: number): { start: Date; end: Date } {
   const now = new Date();

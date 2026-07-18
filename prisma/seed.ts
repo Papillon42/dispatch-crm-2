@@ -9,6 +9,7 @@
 // data to show — they are NOT real, loggable-in Clerk accounts.
 
 import { PrismaClient } from '@prisma/client';
+import { DEFAULT_STATUS_CONFIGS } from '../src/lib/driverStatus';
 
 const prisma = new PrismaClient();
 
@@ -73,6 +74,28 @@ const LOAD_STATUS_POOL: string[] = [
 
 async function main() {
   console.log('Seeding database...');
+
+  // ── Driver status dictionary (system defaults, admin-editable later) ──
+  const statusCount = await prisma.driverStatusConfig.count();
+  if (statusCount === 0) {
+    await prisma.driverStatusConfig.createMany({
+      data: DEFAULT_STATUS_CONFIGS.map((c) => ({
+        code: c.code,
+        label: c.label,
+        color: c.color,
+        icon: c.icon,
+        description: c.description,
+        category: c.category,
+        sortOrder: c.sortOrder,
+        isSystem: true,
+        requiresLoad: c.requiresLoad,
+        requiredFields: c.requiredFields,
+        allowedNext: c.allowedNext,
+      })),
+      skipDuplicates: true,
+    });
+    console.log(`✓ ${DEFAULT_STATUS_CONFIGS.length} driver statuses seeded`);
+  }
 
   // ── Company settings ──────────────────────────────────────────────────
   const existingSettings = await prisma.companySettings.findFirst();

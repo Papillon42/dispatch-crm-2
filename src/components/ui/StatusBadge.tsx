@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
-import { LoadStatus, DriverStatus, ClientStatus, InvoiceStatus } from '@prisma/client';
+import { LoadStatus, ClientStatus, InvoiceStatus } from '@prisma/client';
+import { statusMeta } from '@/lib/driverStatus';
 
 const LOAD_STATUS_CONFIG: Record<LoadStatus, { label: string; className: string }> = {
   NEW_LEAD:                   { label: 'New Lead',         className: 'bg-purple-500/15 text-purple-400 border-purple-500/20' },
@@ -21,12 +22,17 @@ const LOAD_STATUS_CONFIG: Record<LoadStatus, { label: string; className: string 
   PROBLEM:                    { label: 'Problem',          className: 'bg-red-500/15 text-red-400 border-red-500/20' },
 };
 
-const DRIVER_STATUS_CONFIG: Record<DriverStatus, { label: string; className: string; dot: string }> = {
-  AVAILABLE: { label: 'Available', className: 'bg-green-500/15 text-green-400',  dot: 'bg-green-400' },
-  ON_LOAD:   { label: 'On Load',   className: 'bg-blue-500/15 text-blue-400',    dot: 'bg-blue-400' },
-  OFF_DUTY:  { label: 'Off Duty',  className: 'bg-gray-500/15 text-gray-400',    dot: 'bg-gray-400' },
-  INACTIVE:  { label: 'Inactive',  className: 'bg-gray-700/15 text-gray-600',    dot: 'bg-gray-600' },
+// Driver statuses are dictionary-driven (DriverStatusConfig). The badge takes
+// the status CODE plus (optionally) the loaded dictionary so admin renames /
+// recolors show up everywhere; statusMeta() provides seeded fallbacks.
+export type DriverStatusConfigLite = {
+  code: string;
+  label: string;
+  color: string;
+  icon?: string | null;
 };
+
+const MOVING_STATUSES = ['TO_PICKUP', 'IN_TRANSIT', 'ON_LOAD'];
 
 const CLIENT_STATUS_CONFIG: Record<ClientStatus, { label: string; className: string }> = {
   ACTIVE:   { label: 'Active',   className: 'bg-green-500/15 text-green-400' },
@@ -51,12 +57,30 @@ export function LoadStatusBadge({ status }: { status: LoadStatus }) {
   );
 }
 
-export function DriverStatusBadge({ status }: { status: DriverStatus }) {
-  const config = DRIVER_STATUS_CONFIG[status];
+export function DriverStatusBadge({
+  status,
+  configs,
+  className,
+}: {
+  status: string;
+  configs?: DriverStatusConfigLite[];
+  className?: string;
+}) {
+  const meta = statusMeta(status, configs);
   return (
-    <span className={cn('badge', config.className)}>
-      <span className={cn('w-1.5 h-1.5 rounded-full', config.dot, status === 'ON_LOAD' && 'animate-pulse-dot')} />
-      {config.label}
+    <span
+      className={cn('badge border', className)}
+      style={{
+        backgroundColor: `${meta.color}26`,
+        color: meta.color,
+        borderColor: `${meta.color}40`,
+      }}
+    >
+      <span
+        className={cn('w-1.5 h-1.5 rounded-full', MOVING_STATUSES.includes(status) && 'animate-pulse-dot')}
+        style={{ backgroundColor: meta.color }}
+      />
+      {meta.label}
     </span>
   );
 }

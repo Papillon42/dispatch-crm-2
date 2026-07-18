@@ -1,7 +1,46 @@
 import { NextResponse } from 'next/server';
-import { withAuth } from '@/lib/auth/rbac';
+import { withAuth, getDriverFilter } from '@/lib/auth/rbac';
 import { db } from '@/lib/db';
 import { audit } from '@/lib/audit';
+import { ACTIVE_LOAD_STATUSES } from '@/lib/driverStatus';
+
+// GET /api/drivers/:id — full driver card (status block, load, truck, trailer,
+// live location, dispatcher/updater, latest history preview)
+export const GET = withAuth(async (req, ctx, params) => {
+  const id = params?.id;
+  if (!id) return NextResponse.json({ error: 'Missing driver ID' }, { status: 400 });
+
+  const driver = await db.driver.findFirst({
+    where: { id, deletedAt: null, ...getDriverFilter(ctx) },
+    include: {
+      client: { select: { id: true, companyName: true, mc: true, dot: true } },
+      dispatcher: { select: { id: true, fullName: true } },
+      updater: { select: { id: true, fullName: true } },
+      statusUpdatedBy: { select: { id: true, fullName: true } },
+      currentTruck: { select: { id: true, truckNumber: true, trailerType: true, maintenanceStatus: true } },
+      currentTrailer: { select: { id: true, trailerNumber: true, type: true, plate: true } },
+      currentLoad: {
+        select: {
+          id: true, loadCode: true, status: true,
+          pickupAddress: true, pickupCity: true, pickupState: true, pickupLat: true, pickupLng: true, pickupAt: true,
+          deliveryAddress: true, deliveryCity: true, deliveryState: true, deliveryLat: true, deliveryLng: true, deliveryAt: true,
+          estimatedArrivalAt: true, actualDepartureAt: true, actualDeliveryAt: true, loadedAt: true,
+          currentLat: true, currentLng: true, rate: true, totalMiles: true,
+        },
+      },
+      locationUpdates: { orderBy: { at: 'desc' }, take: 1 },
+      loads: {
+        where: { status: { in: ACTIVE_LOAD_STATUSES } },
+        select: { id: true, loadCode: true, status: true },
+        orderBy: { updatedAt: 'desc' },
+      },
+      _count: { select: { loads: true, issues: true, documents: true, statusHistory: true } },
+    },
+  });
+
+  if (!driver) return NextResponse.json({ error: 'Driver not found' }, { status: 404 });
+  return NextResponse.json(driver);
+}, 'drivers', 'read');
 
 // DELETE /api/drivers/:id — soft delete (sets deletedAt). Historical Loads,
 // LocationUpdates, Documents, Issues stay intact for reporting/audit trail;

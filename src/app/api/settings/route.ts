@@ -24,6 +24,16 @@ const UpdateSchema = z.object({
   targetRpm: z.number().min(0).optional(),
   fixedExpenses: z.number().min(0).optional(),
   timezone: z.string().optional(),
+  // Driver status automation (geofences / GPS)
+  autoStatusEnabled: z.boolean().optional(),
+  autoStatusMode: z.enum(['SUGGEST', 'AUTO']).optional(),
+  pickupGeofenceRadiusMiles: z.number().min(0.1).max(50).optional(),
+  deliveryGeofenceRadiusMiles: z.number().min(0.1).max(50).optional(),
+  minGeofenceMinutes: z.number().int().min(0).max(720).optional(),
+  autoInTransitOnMove: z.boolean().optional(),
+  gpsStaleMinutes: z.number().int().min(1).max(1440).optional(),
+  notifyOnStatusChange: z.boolean().optional(),
+  locationRetentionDays: z.number().int().min(7).max(3650).optional(),
 });
 
 // PATCH /api/settings

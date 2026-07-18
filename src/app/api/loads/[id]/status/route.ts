@@ -3,6 +3,7 @@ import { withAuth } from '@/lib/auth/rbac';
 import { db } from '@/lib/db';
 import { audit } from '@/lib/audit';
 import { isValidStatusTransition } from '@/lib/auth/rbac';
+import { syncDriverFromLoadStatus } from '@/lib/services/driverStatus.service';
 import { LoadStatus } from '@prisma/client';
 import { z } from 'zod';
 
@@ -71,5 +72,11 @@ export const PATCH = withAuth(async (req, ctx, params) => {
     after: { status: newStatus },
   });
 
-  return NextResponse.json(updatedLoad);
+  // Keep the assigned driver's operational status in sync with the load
+  // pipeline (ASSIGNED → driver ASSIGNED, IN_TRANSIT → driver IN_TRANSIT, ...).
+  const sync = await syncDriverFromLoadStatus(ctx, loadId, newStatus, {
+    ip: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+  });
+
+  return NextResponse.json({ ...updatedLoad, driverSync: sync ? { driverId: sync.driver.id, status: sync.driver.status } : null });
 }, 'loads', 'update');
