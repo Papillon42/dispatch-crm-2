@@ -1,4 +1,4 @@
-// "Карта перевозок" (dashboard fleet map) — builds route + legend data from
+// Fleet map dashboard data: builds route + legend data from
 // Load + Driver + LocationUpdate. Reuses the existing LocationUpdate model
 // for "current position" instead of introducing a duplicate history table.
 
@@ -31,6 +31,13 @@ export function toRouteStatus(loadStatus: string): RouteStatus {
   }
 }
 
+function routeHealth(status: RouteStatus) {
+  if (status === 'IN_TRANSIT') return 'healthy';
+  if (status === 'WAITING') return 'waiting';
+  if (status === 'PROBLEM' || status === 'IDLE') return 'problem';
+  return 'delayed';
+}
+
 export async function getDashboardMapData(): Promise<DashboardMapData> {
   const loads = await db.load.findMany({
     where: { status: { in: IN_FLIGHT_STATUSES }, driverId: { not: null } },
@@ -39,7 +46,7 @@ export async function getDashboardMapData(): Promise<DashboardMapData> {
       pickupCity: true, pickupState: true, pickupLat: true, pickupLng: true,
       deliveryCity: true, deliveryState: true, deliveryLat: true, deliveryLng: true,
       rate: true,
-      driver: { select: { id: true, fullName: true } },
+      driver: { select: { id: true, fullName: true, avatarUrl: true } },
     },
     take: 200,
   });
@@ -80,7 +87,7 @@ export async function getDashboardMapData(): Promise<DashboardMapData> {
       loadCode: load.loadCode,
       driverId: load.driverId!,
       driverName: load.driver?.fullName ?? 'Unassigned',
-      driverAvatar: null,
+      driverAvatar: load.driver?.avatarUrl ?? null,
       status: toRouteStatus(load.status),
       pickup,
       delivery,
@@ -95,10 +102,10 @@ export async function getDashboardMapData(): Promise<DashboardMapData> {
   });
 
   const legend: MapLegend = {
-    inTransit: routes.filter((r: MapRoute) => r.status === 'IN_TRANSIT').length,
-    loadingUnloading: routes.filter((r: MapRoute) => r.status === 'LOADING' || r.status === 'UNLOADING').length,
-    waiting: routes.filter((r: MapRoute) => r.status === 'WAITING').length,
-    idle: routes.filter((r: MapRoute) => r.status === 'IDLE' || r.status === 'PROBLEM').length,
+    healthy: routes.filter((r: MapRoute) => routeHealth(r.status) === 'healthy').length,
+    waiting: routes.filter((r: MapRoute) => routeHealth(r.status) === 'waiting').length,
+    delayed: routes.filter((r: MapRoute) => routeHealth(r.status) === 'delayed').length,
+    problem: routes.filter((r: MapRoute) => routeHealth(r.status) === 'problem').length,
   };
 
   return { routes, legend };

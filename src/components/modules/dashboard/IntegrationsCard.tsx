@@ -6,8 +6,8 @@ export function IntegrationsCard({ integrations }: { integrations: IntegrationRo
   return (
     <div className="bg-background-card border border-border rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-text-primary">Интеграции</h2>
-        <Link href="/settings" className="text-2xs text-brand-light hover:underline">Управление</Link>
+        <h2 className="text-sm font-semibold text-text-primary">Integrations</h2>
+        <Link href="/settings" className="text-2xs text-brand-light hover:underline">Manage</Link>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {integrations.map((i) => (
@@ -19,7 +19,7 @@ export function IntegrationsCard({ integrations }: { integrations: IntegrationRo
             )}
             <div className="min-w-0">
               <p className="text-sm text-text-secondary truncate">{i.name}</p>
-              <p className="text-2xs text-text-muted truncate">{i.isConnected ? 'Подключено' : 'Добавить интеграцию'}</p>
+              <p className="text-2xs text-text-muted truncate">{i.isConnected ? 'Connected' : 'Add integration'}</p>
             </div>
           </div>
         ))}

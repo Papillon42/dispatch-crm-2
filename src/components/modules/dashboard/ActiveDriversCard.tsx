@@ -1,15 +1,14 @@
 import Link from 'next/link';
-import { Truck } from 'lucide-react';
 import type { ActiveDriverRow } from '@/lib/services/types';
 
 const STATUS_LABEL: Record<string, string> = {
-  IN_TRANSIT: 'В пути',
-  LOADING: 'Загрузка',
-  UNLOADING: 'Выгрузка',
-  WAITING: 'Ожидание',
-  IDLE: 'Простой',
-  PROBLEM: 'Проблема',
-  AVAILABLE: 'Доступен',
+  IN_TRANSIT: 'In Transit',
+  LOADING: 'Loading',
+  UNLOADING: 'Unloading',
+  WAITING: 'Waiting',
+  IDLE: 'Idle',
+  PROBLEM: 'Problem',
+  AVAILABLE: 'Available',
 };
 
 const STATUS_CLASS: Record<string, string> = {
@@ -26,20 +25,28 @@ export function ActiveDriversCard({ drivers }: { drivers: ActiveDriverRow[] }) {
   return (
     <div className="bg-background-card border border-border rounded-lg overflow-hidden">
       <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-text-primary">Активные драйверы</h2>
-        <Link href="/drivers" className="text-2xs text-brand-light hover:underline">Смотреть всех</Link>
+        <h2 className="text-sm font-semibold text-text-primary">Active Drivers</h2>
+        <Link href="/drivers" className="text-2xs text-brand-light hover:underline">View all</Link>
       </div>
 
       {drivers.length === 0 ? (
-        <div className="p-6 text-center text-text-muted text-sm">Нет активных драйверов.</div>
+        <div className="p-6 text-center text-text-muted text-sm">No active drivers.</div>
       ) : (
         <div className="divide-y divide-border-subtle max-h-[360px] overflow-y-auto">
           {drivers.map((d) => (
             <div key={d.id} className="flex items-center justify-between px-4 py-3 hover:bg-background-hover transition-colors">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-background-hover flex items-center justify-center flex-shrink-0">
-                  <Truck className="w-4 h-4 text-text-secondary" />
-                </div>
+                {d.avatar ? (
+                  <img
+                    src={d.avatar}
+                    alt=""
+                    className="h-8 w-8 flex-shrink-0 rounded-full border border-border object-cover"
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-border bg-background-hover text-2xs font-semibold text-text-secondary">
+                    {d.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-text-primary truncate">{d.name}</p>
                   <p className="text-2xs text-text-muted truncate">

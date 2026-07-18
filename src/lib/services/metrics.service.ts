@@ -1,6 +1,6 @@
 // Dashboard KPI calculations — all real Prisma aggregation, no hardcoded numbers.
 // Every function here returns a fully-formed `Metric` so components never
-// need to do math themselves (per TZ: "не писать сложные запросы в React").
+// need to do math themselves.
 
 import { db } from '@/lib/db';
 import type { LoadStatus, DriverStatus } from '@prisma/client';
@@ -71,7 +71,7 @@ async function dailySparkline(
   return buckets;
 }
 
-// ─── Общая выручка (Gross Revenue) ─────────────────────────────────────────
+// ─── Gross Revenue ────────────────────────────────────────────────────────
 
 export async function getGrossRevenueMetric(): Promise<Metric> {
   const { start: curStart, end: curEnd } = monthRange(0);
@@ -125,18 +125,18 @@ export async function getGrossRevenueMetric(): Promise<Metric> {
   const changeValue = pctChange(current, previous);
 
   return {
-    label: 'Общая выручка',
-    period: 'Этот месяц',
+    label: 'Gross Revenue',
+    period: 'This month',
     value: formatCurrency(current),
     rawValue: current,
     changeValue,
-    changeLabel: 'к прошлому месяцу',
+    changeLabel: 'vs last month',
     trend: trendFromChange(changeValue),
     sparkline,
   };
 }
 
-// ─── Активные грузы (Active Loads) ─────────────────────────────────────────
+// ─── Active Loads ─────────────────────────────────────────────────────────
 
 export async function getActiveLoadsMetric(): Promise<Metric> {
   const { start: todayStart, end: todayEnd } = dayRange(0);
@@ -161,18 +161,18 @@ export async function getActiveLoadsMetric(): Promise<Metric> {
   const changeValue = pctChange(todaySnapshot, yesterdaySnapshot);
 
   return {
-    label: 'Активные грузы',
-    period: 'Сегодня',
+    label: 'Active Loads',
+    period: 'Today',
     value: current,
     rawValue: current,
     changeValue,
-    changeLabel: 'к вчера',
+    changeLabel: 'vs yesterday',
     trend: trendFromChange(changeValue),
     sparkline: last14,
   };
 }
 
-// ─── Драйверы (Active Drivers) ─────────────────────────────────────────────
+// ─── Active Drivers ───────────────────────────────────────────────────────
 
 export async function getActiveDriversMetric(): Promise<Metric & { totalCount: number; activePercentage: number }> {
   const [activeCount, totalCount, last14] = await Promise.all([
@@ -189,12 +189,12 @@ export async function getActiveDriversMetric(): Promise<Metric & { totalCount: n
   const activePercentage = totalCount > 0 ? (activeCount / totalCount) * 100 : 0;
 
   return {
-    label: 'Драйверы',
-    period: 'Активные',
+    label: 'Drivers',
+    period: 'Active',
     value: activeCount,
     rawValue: activeCount,
     changeValue: activePercentage,
-    changeLabel: `${activePercentage.toFixed(0)}% от общего числа`,
+    changeLabel: `${activePercentage.toFixed(0)}% of total`,
     trend: 'neutral',
     sparkline: last14,
     totalCount,
@@ -202,7 +202,7 @@ export async function getActiveDriversMetric(): Promise<Metric & { totalCount: n
   };
 }
 
-// ─── Средний RPM (Average Rate Per Mile) ───────────────────────────────────
+// ─── Average Rate Per Mile ────────────────────────────────────────────────
 
 const RPM_ELIGIBLE_STATUSES: LoadStatus[] = [
   'IN_TRANSIT', 'AT_DELIVERY', 'DELIVERED', 'POD_UPLOADED', 'INVOICED', 'PAID', 'CLOSED',
@@ -236,18 +236,18 @@ export async function getAverageRpmMetric(): Promise<Metric> {
   const changeValue = pctChange(current, previous);
 
   return {
-    label: 'Средний RPM',
-    period: 'Этот месяц',
+    label: 'Average RPM',
+    period: 'This month',
     value: formatRpm(current || null),
     rawValue: current,
     changeValue,
-    changeLabel: 'к прошлому месяцу',
+    changeLabel: 'vs last month',
     trend: trendFromChange(changeValue),
     sparkline,
   };
 }
 
-// ─── Денежный поток (Cash Flow) ────────────────────────────────────────────
+// ─── Cash Flow ────────────────────────────────────────────────────────────
 
 export async function getCashFlowMetric(): Promise<Metric> {
   const { start: curStart, end: curEnd } = monthRange(0);
@@ -281,12 +281,12 @@ export async function getCashFlowMetric(): Promise<Metric> {
   const changeValue = pctChange(current, previous);
 
   return {
-    label: 'Денежный поток',
-    period: 'Этот месяц',
+    label: 'Cash Flow',
+    period: 'This month',
     value: formatCurrency(current),
     rawValue: current,
     changeValue,
-    changeLabel: 'к прошлому месяцу',
+    changeLabel: 'vs last month',
     trend: trendFromChange(changeValue),
     sparkline,
   };

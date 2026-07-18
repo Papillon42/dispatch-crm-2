@@ -6,10 +6,10 @@ import { Plus, Package, Users, UserCheck, CheckSquare, ChevronUp, ChevronDown } 
 import { cn } from '@/lib/utils';
 
 const QUICK_LINKS = [
-  { label: 'Новый груз', href: '/loads?new=1', icon: Package },
-  { label: 'Новый клиент', href: '/clients?new=1', icon: Users },
-  { label: 'Новый драйвер', href: '/drivers?new=1', icon: UserCheck },
-  { label: 'Новая задача', href: '/communications?new_task=1', icon: CheckSquare },
+  { label: 'New load', href: '/loads?new=1', icon: Package },
+  { label: 'New client', href: '/clients?new=1', icon: Users },
+  { label: 'New driver', href: '/drivers?new=1', icon: UserCheck },
+  { label: 'New task', href: '/communications?new_task=1', icon: CheckSquare },
 ];
 
 /** Sidebar footer card — matches the "Quick Add" widget from the reference mockups. */
@@ -20,7 +20,7 @@ export function QuickAddCard({ collapsed }: { collapsed?: boolean }) {
     return (
       <Link
         href="/loads?new=1"
-        title="Quick Add / Создать"
+        title="Quick Add"
         className="mx-2 mb-2 flex items-center justify-center w-9 h-9 rounded-md bg-brand hover:bg-brand-dark text-white"
       >
         <Plus className="w-4 h-4" />
@@ -31,7 +31,7 @@ export function QuickAddCard({ collapsed }: { collapsed?: boolean }) {
   return (
     <div className="mx-3 mb-3 rounded-lg bg-background-tertiary border border-border-subtle p-3 relative">
       <p className="text-sm font-semibold text-text-primary">Quick Add</p>
-      <p className="text-2xs text-text-muted mt-0.5 mb-2.5">Создать новый груз, клиента или задачу</p>
+      <p className="text-2xs text-text-muted mt-0.5 mb-2.5">Create a load, client, driver, or task</p>
 
       {open && (
         <div className="mb-2 space-y-0.5 rounded-md border border-border bg-background-card p-1">
@@ -55,7 +55,7 @@ export function QuickAddCard({ collapsed }: { collapsed?: boolean }) {
         )}
       >
         <Plus className="w-4 h-4" />
-        Создать
+        Create
         {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
       </button>
     </div>

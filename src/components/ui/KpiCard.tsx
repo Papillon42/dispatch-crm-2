@@ -5,7 +5,7 @@ import { Sparkline } from './Sparkline';
 
 interface KpiCardProps {
   label: string;
-  /** Small muted subtitle under the label, e.g. "Этот месяц" / "Сегодня" / "Активные". */
+  /** Small muted subtitle under the label, e.g. "This month" / "Today" / "Active". */
   period?: string;
   value: string | number;
   delta?: number;
@@ -51,7 +51,7 @@ export function KpiCard({
           <button
             type="button"
             className="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded text-text-muted hover:text-text-secondary hover:bg-background-hover"
-            aria-label="Дополнительные действия"
+            aria-label="More actions"
           >
             <MoreHorizontal className="w-4 h-4" />
           </button>

@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
+import { getAuthContext } from '@/lib/auth/rbac';
 
 // GET /api/me — lightweight profile info for the topbar (name + role badge)
 export async function GET() {
-  const { userId: clerkId } = auth();
-  if (!clerkId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const ctx = await getAuthContext();
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const user = await db.user.findUnique({
-    where: { clerkId },
+    where: { id: ctx.userId },
     select: { id: true, fullName: true, role: true, isSenior: true },
   });
 

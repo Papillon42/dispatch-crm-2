@@ -11,10 +11,10 @@ import {
   RefreshCw,
   Search,
   SlidersHorizontal,
+  Trash2,
   Truck,
   UserRound,
   X,
-  Trash2,
 } from 'lucide-react';
 import { cn, formatDate, formatNumber } from '@/lib/utils';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -216,9 +216,13 @@ export function ClientsWorkspace() {
         throw new Error(payload?.error ?? 'Unable to create client');
       }
 
+      const createdClient = payload as ClientRow;
       setForm(EMPTY_FORM);
       setIsCreateOpen(false);
-      await loadClients();
+      setSearch('');
+      setStatus('ALL');
+      setClients((current) => [createdClient, ...current.filter((client) => client.id !== createdClient.id)]);
+      setTotal((current) => current + (clients.some((client) => client.id === createdClient.id) ? 0 : 1));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create client');
     } finally {
@@ -357,7 +361,6 @@ export function ClientsWorkspace() {
                 <th>MC / DOT</th>
                 <th>Fleet</th>
                 <th>Fee</th>
-                <th>Dispatcher</th>
                 <th>Added</th>
                 {canDelete && <th>Actions</th>}
               </tr>
@@ -366,14 +369,14 @@ export function ClientsWorkspace() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, index) => (
                   <tr key={index}>
-                    <td colSpan={canDelete ? 9 : 8}>
+                    <td colSpan={canDelete ? 8 : 7}>
                       <div className="h-8 rounded bg-background-hover animate-pulse" />
                     </td>
                   </tr>
                 ))
               ) : clients.length === 0 ? (
                 <tr>
-                  <td colSpan={canDelete ? 9 : 8}>
+                  <td colSpan={canDelete ? 8 : 7}>
                     <div className="py-12 text-center">
                       <Building2 className="h-8 w-8 text-text-muted mx-auto mb-3" />
                       <p className="text-sm font-medium text-text-primary">No clients found</p>
@@ -430,7 +433,6 @@ export function ClientsWorkspace() {
                         </div>
                       </td>
                       <td>{client.dispatchFeePercent.toFixed(1)}%</td>
-                      <td>{client.dispatcher?.fullName ?? '—'}</td>
                       <td>{formatDate(client.createdAt)}</td>
                       {canDelete && (
                         <td>

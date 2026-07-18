@@ -16,20 +16,20 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
-        {/* Rendered as a sibling of <body>, Next.js hoists this into <head> and
-            runs it before hydration so the correct theme is applied with no flash. */}
+    <html lang="en" suppressHydrationWarning>
+      <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript() }} />
-        <body className={`${inter.className} bg-background text-text-primary antialiased`} suppressHydrationWarning>
+      </head>
+      <body className={`${inter.className} bg-background text-text-primary antialiased`} suppressHydrationWarning>
+        <ClerkProvider>
           <ThemeProvider>
             <ToastProvider>
               <GlobeBackground />
               <div className="relative z-10">{children}</div>
             </ToastProvider>
           </ThemeProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }

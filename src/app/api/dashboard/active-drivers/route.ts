@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthContext } from '@/lib/auth/rbac';
 import { getActiveDriversForDashboard } from '@/lib/services/activity.service';
 
-// GET /api/dashboard/active-drivers — "Активные драйверы" list.
+// GET /api/dashboard/active-drivers — active drivers list.
 export async function GET(req: Request) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

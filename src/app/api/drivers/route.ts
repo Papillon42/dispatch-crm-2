@@ -10,6 +10,7 @@ const CreateDriverSchema = z.object({
   fullName: z.string().min(1),
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
+  avatarUrl: z.string().url().optional().or(z.literal('')),
   telegram: z.string().optional(),
   cdlNumber: z.string().optional(),
   cdlState: z.string().optional(),
@@ -86,6 +87,7 @@ export const POST = withAuth(async (req, ctx) => {
       fullName: data.fullName.trim(),
       phone: data.phone?.trim() || undefined,
       email: data.email?.trim() || undefined,
+      avatarUrl: data.avatarUrl?.trim() || undefined,
       telegram: data.telegram?.trim() || undefined,
       cdlNumber: data.cdlNumber?.trim() || undefined,
       cdlState: data.cdlState?.trim().toUpperCase() || undefined,
@@ -98,6 +100,10 @@ export const POST = withAuth(async (req, ctx) => {
     include: {
       client: { select: { id: true, companyName: true } },
       dispatcher: { select: { id: true, fullName: true } },
+      updater: { select: { id: true, fullName: true } },
+      currentTruck: { select: { id: true, truckNumber: true, trailerType: true } },
+      locationUpdates: { orderBy: { at: 'desc' }, take: 1 },
+      _count: { select: { loads: true, issues: true, documents: true } },
     },
   });
 

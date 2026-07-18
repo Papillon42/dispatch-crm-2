@@ -79,7 +79,11 @@ export const POST = withAuth(async (req, ctx) => {
       dispatcherId: ctx.role === 'ADMIN' ? data.dispatcherId ?? ctx.userId : ctx.userId,
       contacts: contacts ? { create: contacts } : undefined,
     },
-    include: { contacts: true },
+    include: {
+      contacts: { where: { isPrimary: true }, take: 1 },
+      dispatcher: { select: { id: true, fullName: true } },
+      _count: { select: { trucks: true, drivers: true, loads: true } },
+    },
   });
 
   await audit({

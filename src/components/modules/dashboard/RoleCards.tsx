@@ -16,7 +16,7 @@ export function RoleCards({ roles }: { roles: RoleSummaryRow[] }) {
 
   return (
     <div className="bg-background-card border border-border rounded-lg p-4">
-      <h2 className="text-sm font-semibold text-text-primary mb-3">Команда по ролям</h2>
+      <h2 className="text-sm font-semibold text-text-primary mb-3">Team by Role</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {roles.map(({ role, label, count, href }) => {
           const { icon: Icon, color } = ICONS[role] ?? { icon: Building2, color: 'text-text-secondary bg-background-hover' };
@@ -34,7 +34,7 @@ export function RoleCards({ roles }: { roles: RoleSummaryRow[] }) {
                 <p className="text-2xs text-text-muted mt-1">{label}</p>
               </div>
               <span className="flex items-center gap-1 text-2xs text-text-secondary group-hover:text-brand-light mt-auto">
-                Перейти <ArrowRight className="w-3 h-3" />
+                Open <ArrowRight className="w-3 h-3" />
               </span>
             </Link>
           );

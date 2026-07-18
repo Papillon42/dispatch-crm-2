@@ -54,13 +54,13 @@ const CLIENT_NAMES = [
 ];
 
 const DRIVER_NAMES = [
-  'Иван Петров', 'Алексей Смирнов', 'Виктор Козлов', 'Дмитрий Волков', 'Сергей Морозов',
+  'John Peterson', 'Alex Smith', 'Victor Cole', 'Daniel Walker', 'Samuel Morris',
   'Michael Johnson', 'James Rodriguez', 'Robert Martinez', 'David Anderson', 'William Garcia',
-  'Николай Соколов', 'Андрей Лебедев', 'Олег Новиков', 'Павел Крылов', 'Максим Захаров',
+  'Nicholas Parker', 'Andrew Lewis', 'Oliver Newman', 'Paul Carter', 'Max Harper',
   'Christopher Lee', 'Daniel Thompson', 'Matthew White', 'Anthony Harris', 'Joshua Clark',
-  'Игорь Фролов', 'Роман Быков', 'Виталий Орлов', 'Артём Гусев', 'Станислав Кузнецов',
+  'Ian Foster', 'Roman Brooks', 'Victor Orlov', 'Arthur Hayes', 'Stanley Cooper',
   'Joseph Lewis', 'Charles Walker', 'Thomas Hall', 'Kevin Young', 'Brian King',
-  'Юрий Медведев', 'Владимир Титов', 'Евгений Комаров', 'Денис Воробьёв', 'Григорий Соловьёв',
+  'George Miller', 'Vladimir Tate', 'Eugene Cole', 'Dennis Wright', 'Gregory Sullivan',
   'Steven Wright', 'Timothy Scott', 'Richard Green', 'Ronald Baker', 'Edward Adams',
 ];
 
@@ -95,12 +95,12 @@ async function main() {
   let users: Awaited<ReturnType<typeof prisma.user.create>>[] = [];
   if (userCount === 0) {
     const seedUsers = [
-      { role: 'ADMIN', fullName: 'Иван Петров', email: 'ivan.petrov@dispatchcrm.demo', isSenior: true },
-      { role: 'SENIOR_DISPATCHER', fullName: 'Алексей Смирнов', email: 'alexey.smirnov@dispatchcrm.demo', isSenior: true },
-      { role: 'DISPATCHER', fullName: 'Мария Иванова', email: 'maria.ivanova@dispatchcrm.demo', isSenior: false },
+      { role: 'ADMIN', fullName: 'John Peterson', email: 'john.peterson@dispatchcrm.demo', isSenior: true },
+      { role: 'SENIOR_DISPATCHER', fullName: 'Alex Smith', email: 'alex.smith@dispatchcrm.demo', isSenior: true },
+      { role: 'DISPATCHER', fullName: 'Maria Evans', email: 'maria.evans@dispatchcrm.demo', isSenior: false },
       { role: 'DISPATCHER', fullName: 'Sarah Mitchell', email: 'sarah.mitchell@dispatchcrm.demo', isSenior: false },
-      { role: 'UPDATER', fullName: 'Дмитрий Волков', email: 'dmitry.volkov@dispatchcrm.demo', isSenior: false },
-      { role: 'FINANCE', fullName: 'Елена Кузнецова', email: 'elena.kuznetsova@dispatchcrm.demo', isSenior: false },
+      { role: 'UPDATER', fullName: 'Daniel Walker', email: 'daniel.walker@dispatchcrm.demo', isSenior: false },
+      { role: 'FINANCE', fullName: 'Elena Cooper', email: 'elena.cooper@dispatchcrm.demo', isSenior: false },
     ];
     for (let i = 0; i < seedUsers.length; i++) {
       const u = seedUsers[i];
@@ -268,10 +268,10 @@ async function main() {
             driverId: driver.id,
             loadId: load.id,
             lat, lng,
-            label: `${Math.round(progress * 100)}% маршрута`,
+            label: `${Math.round(progress * 100)}% of route`,
             source: 'MANUAL',
             eta: new Date(Date.now() + 1000 * 60 * 60 * randInt(2, 36)),
-            etaLabel: `через ${randInt(2, 36)} ч`,
+            etaLabel: `in ${randInt(2, 36)}h`,
             updatedById: updaters.length ? rand(updaters).id : undefined,
             at: daysAgo(0),
           },
@@ -323,9 +323,9 @@ async function main() {
   if (activityCount === 0) {
     const recentLoads = await prisma.load.findMany({ orderBy: { createdAt: 'desc' }, take: 12 });
     const templates: Array<{ action: string; title: (l: any) => string; description?: (l: any) => string }> = [
-      { action: 'created', title: (l) => `Новый груз ${l.loadCode} создан`, description: (l) => `${l.pickupCity ?? '—'} → ${l.deliveryCity ?? '—'}` },
-      { action: 'status_changed', title: (l) => `Статус груза ${l.loadCode} изменён`, description: (l) => `Текущий статус: ${l.status}` },
-      { action: 'payment_received', title: (l) => `Получена оплата по грузу ${l.loadCode}`, description: (l) => `Сумма: $${l.rate.toLocaleString('en-US')}` },
+      { action: 'created', title: (l) => `New load ${l.loadCode} created`, description: (l) => `${l.pickupCity ?? '—'} → ${l.deliveryCity ?? '—'}` },
+      { action: 'status_changed', title: (l) => `Load ${l.loadCode} status changed`, description: (l) => `Current status: ${l.status}` },
+      { action: 'payment_received', title: (l) => `Payment received for load ${l.loadCode}`, description: (l) => `Amount: $${l.rate.toLocaleString('en-US')}` },
     ];
     let idx = 0;
     for (const l of recentLoads) {
@@ -347,15 +347,15 @@ async function main() {
       data: {
         entityType: 'Communication',
         action: 'message_received',
-        title: 'Новое сообщение от клиента',
-        description: 'Клиент запросил обновление статуса груза.',
+        title: 'New message from client',
+        description: 'Client requested a load status update.',
         createdAt: daysAgo(0),
       },
     });
     console.log('✓ Activity log seeded');
   }
 
-  console.log('Seed complete. Sign up via /login, then promote yourself to ADMIN (see prisma/promote-admin.ts) to log in as a real user — the seeded "Иван Петров" etc. are demo-only placeholder rows.');
+  console.log('Seed complete. Sign up via /login, then promote yourself to ADMIN (see prisma/promote-admin.ts) to log in as a real user. Seeded demo users are placeholder rows.');
 }
 
 main()

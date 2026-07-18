@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthContext } from '@/lib/auth/rbac';
 import { getRecentActivity } from '@/lib/services/activity.service';
 
-// GET /api/dashboard/recent-activity — "Недавняя активность" feed.
+// GET /api/dashboard/recent-activity — recent activity feed.
 export async function GET(req: Request) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

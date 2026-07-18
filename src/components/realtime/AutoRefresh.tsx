@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 interface AutoRefreshProps {
   /** How often to re-run the server component's data fetch. Spec allows up to 30s; default is snappier. */
   intervalMs?: number;
-  /** Optional label shown next to the live indicator, e.g. "Live" / "Обновление в реальном времени". */
+  /** Optional label shown next to the live indicator, e.g. "Live" / "Live updates". */
   label?: string;
   className?: string;
 }

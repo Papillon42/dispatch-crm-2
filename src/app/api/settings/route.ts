@@ -36,7 +36,14 @@ export const PATCH = withAuth(async (req, ctx) => {
     ? await db.companySettings.update({ where: { id: existing.id }, data })
     : await db.companySettings.create({ data: { companyName: 'Your Dispatch Co.', ...data } });
 
-  await audit({ actorId: ctx.userId, action: 'update', entityType: 'CompanySettings', entityId: settings.id, before: existing, after: settings });
+  await audit({
+    actorId: ctx.userId,
+    action: 'update',
+    entityType: 'CompanySettings',
+    entityId: settings.id,
+    before: existing ?? undefined,
+    after: settings,
+  });
 
   return NextResponse.json(settings);
 }, 'settings', 'update');

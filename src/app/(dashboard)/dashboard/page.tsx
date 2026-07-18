@@ -1,13 +1,10 @@
-import { getAuthContext } from '@/lib/auth/rbac';
-import { getDashboardSummary } from '@/lib/services/dashboard.service';
+import { getEmptyDashboardSummary } from '@/lib/services/dashboard.service';
 import { DashboardClient } from '@/components/modules/dashboard/DashboardClient';
 
-// Server-rendered shell: fetches the initial /api/dashboard/summary payload
-// directly through the service layer (no self-HTTP round-trip), then hands
-// off to a client component for live polling + map interactivity.
-export default async function DashboardPage() {
-  const ctx = await getAuthContext();
-  const initialData = await getDashboardSummary(ctx);
+export const dynamic = 'force-dynamic';
 
-  return <DashboardClient initialData={initialData} />;
+// Render the dashboard shell immediately. The client fetches the live summary
+// through /api/dashboard/summary, which keeps slow Supabase calls out of SSR.
+export default function DashboardPage() {
+  return <DashboardClient initialData={getEmptyDashboardSummary()} />;
 }

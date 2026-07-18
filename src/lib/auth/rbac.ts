@@ -1,5 +1,5 @@
-import { UserRole } from '@prisma/client';
-import { auth } from '@clerk/nextjs/server';
+import { Prisma, UserRole } from '@prisma/client';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -226,6 +226,46 @@ export interface AuthContext {
   managerId: string | null;
 }
 
+async function createUserFromClerk(clerkId: string) {
+  const clerkUser = await currentUser().catch(() => null);
+  const primaryEmail = clerkUser?.emailAddresses.find((email) => email.id === clerkUser.primaryEmailAddressId)?.emailAddress
+    ?? clerkUser?.emailAddresses[0]?.emailAddress
+    ?? `${clerkId}@clerk.local`;
+  const fullName = [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(' ')
+    || clerkUser?.fullName
+    || primaryEmail.split('@')[0]
+    || 'New User';
+  const realUserCount = await db.user.count({
+    where: { clerkId: { not: { startsWith: 'seed-' } } },
+  });
+  const role: UserRole = realUserCount === 0 ? 'ADMIN' : 'DISPATCHER';
+
+  try {
+    return await db.user.create({
+      data: {
+        clerkId,
+        email: primaryEmail,
+        fullName,
+        role,
+        isSenior: role === 'ADMIN',
+        status: 'ACTIVE',
+        ndaAccepted: true,
+        ndaAcceptedAt: new Date(),
+      },
+      select: { id: true, clerkId: true, role: true, isSenior: true, managerId: true, status: true },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return db.user.findUnique({
+        where: { clerkId },
+        select: { id: true, clerkId: true, role: true, isSenior: true, managerId: true, status: true },
+      });
+    }
+
+    throw error;
+  }
+}
+
 export async function getAuthContext(): Promise<AuthContext | null> {
   const { userId: clerkId } = auth();
   if (!clerkId) return null;
@@ -233,7 +273,7 @@ export async function getAuthContext(): Promise<AuthContext | null> {
   const user = await db.user.findUnique({
     where: { clerkId },
     select: { id: true, clerkId: true, role: true, isSenior: true, managerId: true, status: true },
-  });
+  }) ?? await createUserFromClerk(clerkId);
 
   if (!user || user.status !== 'ACTIVE') return null;
 

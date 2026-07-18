@@ -14,12 +14,12 @@ export function RecentActivityCard({ activity }: { activity: ActivityRow[] }) {
   return (
     <div className="bg-background-card border border-border rounded-lg overflow-hidden">
       <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-text-primary">Недавняя активность</h2>
-        <Link href="/reports" className="text-2xs text-brand-light hover:underline">Смотреть все</Link>
+        <h2 className="text-sm font-semibold text-text-primary">Recent Activity</h2>
+        <Link href="/reports" className="text-2xs text-brand-light hover:underline">View all</Link>
       </div>
 
       {activity.length === 0 ? (
-        <div className="p-6 text-center text-text-muted text-sm">Пока нет активности.</div>
+        <div className="p-6 text-center text-text-muted text-sm">No activity yet.</div>
       ) : (
         <div className="divide-y divide-border-subtle max-h-[360px] overflow-y-auto">
           {activity.map((a) => {

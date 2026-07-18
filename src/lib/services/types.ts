@@ -43,10 +43,10 @@ export interface MapRoute {
 }
 
 export interface MapLegend {
-  inTransit: number;
-  loadingUnloading: number;
+  healthy: number;
   waiting: number;
-  idle: number;
+  delayed: number;
+  problem: number;
 }
 
 export interface DashboardMapData {

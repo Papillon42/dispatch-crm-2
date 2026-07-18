@@ -1,4 +1,4 @@
-// Orchestrates the whole "Главная панель" payload. This is the only place
+// Orchestrates the whole dashboard payload. This is the only place
 // that should be imported by /api/dashboard/summary and by the dashboard
 // page's initial server-render — keeps Prisma query composition out of
 // both the route handlers and the React components.
@@ -22,6 +22,80 @@ const ROLE_SUMMARY_CONFIG: Array<{ role: string; label: string; href: string }> 
   { role: 'CLIENT', label: 'Client', href: '/clients' },
   { role: 'DRIVER', label: 'Driver', href: '/drivers' },
 ];
+
+const emptySparkline = [0, 0, 0, 0, 0, 0, 0];
+
+export function getEmptyDashboardSummary(): DashboardSummary {
+  return {
+    kpis: {
+      grossRevenue: {
+        label: 'Gross Revenue',
+        period: 'This month',
+        value: '$0',
+        rawValue: 0,
+        changeValue: 0,
+        changeLabel: 'No database connection',
+        trend: 'neutral',
+        sparkline: emptySparkline,
+      },
+      activeLoads: {
+        label: 'Active Loads',
+        period: 'Now',
+        value: 0,
+        rawValue: 0,
+        changeValue: 0,
+        changeLabel: 'No database connection',
+        trend: 'neutral',
+        sparkline: emptySparkline,
+      },
+      activeDrivers: {
+        label: 'Active Drivers',
+        period: 'Now',
+        value: 0,
+        rawValue: 0,
+        totalCount: 0,
+        activePercentage: 0,
+        changeValue: 0,
+        changeLabel: 'No database connection',
+        trend: 'neutral',
+        sparkline: emptySparkline,
+      },
+      averageRpm: {
+        label: 'Average RPM',
+        period: 'This month',
+        value: '$0.00',
+        rawValue: 0,
+        changeValue: 0,
+        changeLabel: 'No database connection',
+        trend: 'neutral',
+        sparkline: emptySparkline,
+      },
+      cashFlow: {
+        label: 'Cash Flow',
+        period: 'This month',
+        value: '$0',
+        rawValue: 0,
+        changeValue: 0,
+        changeLabel: 'No database connection',
+        trend: 'neutral',
+        sparkline: emptySparkline,
+      },
+    },
+    map: {
+      routes: [],
+      legend: {
+        healthy: 0,
+        waiting: 0,
+        delayed: 0,
+        problem: 0,
+      },
+    },
+    activeDrivers: [],
+    integrations: [],
+    recentActivity: [],
+    roleSummary: [],
+  };
+}
 
 export async function getRoleSummary(): Promise<RoleSummaryRow[]> {
   const [grouped, clients, drivers] = await Promise.all([
@@ -57,7 +131,7 @@ export async function getDashboardSummary(ctx: AuthContext | null): Promise<Dash
     getAverageRpmMetric(),
     getCashFlowMetric(),
     getDashboardMapData(),
-    getActiveDriversForDashboard(5),
+    getActiveDriversForDashboard(15),
     getIntegrations(),
     getRecentActivity(10),
     canSeeTeam ? getRoleSummary() : Promise.resolve([]),

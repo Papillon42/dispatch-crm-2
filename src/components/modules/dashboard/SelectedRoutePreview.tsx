@@ -6,12 +6,12 @@ import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { MapRoute } from '@/lib/services/types';
 
 const STATUS_LABEL: Record<string, string> = {
-  IN_TRANSIT: 'В пути',
-  LOADING: 'Загрузка',
-  UNLOADING: 'Выгрузка',
-  WAITING: 'Ожидание',
-  IDLE: 'Простой',
-  PROBLEM: 'Проблема',
+  IN_TRANSIT: 'In Transit',
+  LOADING: 'Loading',
+  UNLOADING: 'Unloading',
+  WAITING: 'Waiting',
+  IDLE: 'Idle',
+  PROBLEM: 'Problem',
 };
 
 export function SelectedRoutePreview({ route, onClear }: { route: MapRoute | null; onClear: () => void }) {
@@ -19,7 +19,7 @@ export function SelectedRoutePreview({ route, onClear }: { route: MapRoute | nul
     return (
       <div className="h-full flex items-center justify-center text-center px-6 py-8">
         <p className="text-sm text-text-muted">
-          Выберите маршрут на карте, чтобы увидеть детали груза.
+          Select a route on the map to view load details.
         </p>
       </div>
     );
@@ -31,7 +31,7 @@ export function SelectedRoutePreview({ route, onClear }: { route: MapRoute | nul
         <button
           onClick={onClear}
           className="w-7 h-7 flex items-center justify-center rounded-md text-text-secondary hover:text-text-primary hover:bg-background-hover"
-          aria-label="Назад"
+          aria-label="Back"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
@@ -40,7 +40,7 @@ export function SelectedRoutePreview({ route, onClear }: { route: MapRoute | nul
 
       <div>
         <Link href={`/loads?search=${route.loadCode}`} className="text-sm font-semibold text-text-primary hover:text-brand-light">
-          Груз {route.loadCode}
+          Load {route.loadCode}
         </Link>
       </div>
 

@@ -31,6 +31,7 @@ type DriverRow = {
   fullName: string;
   phone: string | null;
   email: string | null;
+  avatarUrl: string | null;
   telegram: string | null;
   telegramChatId: string | null;
   cdlNumber: string | null;
@@ -77,6 +78,7 @@ type CreateDriverForm = {
   fullName: string;
   phone: string;
   email: string;
+  avatarUrl: string;
   telegram: string;
   cdlNumber: string;
   cdlState: string;
@@ -113,6 +115,7 @@ const EMPTY_FORM: CreateDriverForm = {
   fullName: '',
   phone: '',
   email: '',
+  avatarUrl: '',
   telegram: '',
   cdlNumber: '',
   cdlState: '',
@@ -235,6 +238,7 @@ export function DriversWorkspace() {
           fullName: form.fullName.trim(),
           phone: form.phone.trim() || undefined,
           email: form.email.trim() || undefined,
+          avatarUrl: form.avatarUrl.trim() || undefined,
           telegram: form.telegram.trim() || undefined,
           cdlNumber: form.cdlNumber.trim() || undefined,
           cdlState: form.cdlState.trim() || undefined,
@@ -248,9 +252,13 @@ export function DriversWorkspace() {
       const payload = await res.json().catch(() => null);
       if (!res.ok) throw new Error(payload?.error ?? 'Unable to create driver');
 
+      const createdDriver = payload as DriverRow;
       setForm(EMPTY_FORM);
       setIsCreateOpen(false);
-      await loadDrivers();
+      setSearch('');
+      setStatus('ALL');
+      setDrivers((current) => [createdDriver, ...current.filter((driver) => driver.id !== createdDriver.id)]);
+      setTotal((current) => current + (drivers.some((driver) => driver.id === createdDriver.id) ? 0 : 1));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create driver');
     } finally {
@@ -429,21 +437,34 @@ export function DriversWorkspace() {
                   return (
                     <tr key={driver.id}>
                       <td>
-                        <div>
-                          <p className="font-medium text-text-primary">{driver.fullName}</p>
-                          <div className="mt-1 flex flex-col gap-0.5 text-xs text-text-muted">
-                            {driver.phone && (
-                              <span className="inline-flex items-center gap-1">
-                                <Phone className="h-3 w-3" />
-                                {driver.phone}
-                              </span>
-                            )}
-                            {driver.email && (
-                              <span className="inline-flex items-center gap-1">
-                                <Mail className="h-3 w-3" />
-                                {driver.email}
-                              </span>
-                            )}
+                        <div className="flex items-center gap-3">
+                          {driver.avatarUrl ? (
+                            <img
+                              src={driver.avatarUrl}
+                              alt=""
+                              className="h-9 w-9 flex-shrink-0 rounded-full border border-border object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-border bg-background-hover text-xs font-semibold text-text-secondary">
+                              {driver.fullName.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-text-primary">{driver.fullName}</p>
+                            <div className="mt-1 flex flex-col gap-0.5 text-xs text-text-muted">
+                              {driver.phone && (
+                                <span className="inline-flex items-center gap-1">
+                                  <Phone className="h-3 w-3" />
+                                  {driver.phone}
+                                </span>
+                              )}
+                              {driver.email && (
+                                <span className="inline-flex items-center gap-1">
+                                  <Mail className="h-3 w-3" />
+                                  {driver.email}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -587,6 +608,17 @@ export function DriversWorkspace() {
                     value={form.email}
                     onChange={(event) => updateForm('email', event.target.value)}
                     className="h-10 w-full rounded-md border border-border bg-background-secondary px-3 text-sm text-text-primary outline-none focus:border-border-focus"
+                  />
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Photo URL</span>
+                  <input
+                    type="url"
+                    value={form.avatarUrl}
+                    onChange={(event) => updateForm('avatarUrl', event.target.value)}
+                    placeholder="https://..."
+                    className="h-10 w-full rounded-md border border-border bg-background-secondary px-3 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-border-focus"
                   />
                 </label>
 

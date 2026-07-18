@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import {
-  DollarSign, Package, UserCheck, TrendingUp, Wallet2,
+  AlertTriangle, DollarSign, Package, UserCheck, TrendingUp, Wallet2,
 } from 'lucide-react';
 import { usePolling } from '@/hooks/usePolling';
 import { KpiCard } from '@/components/ui/KpiCard';
@@ -14,7 +14,13 @@ import { RecentActivityCard } from './RecentActivityCard';
 import { RoleCards } from './RoleCards';
 import type { DashboardSummary } from '@/lib/services/types';
 
-export function DashboardClient({ initialData }: { initialData: DashboardSummary }) {
+export function DashboardClient({
+  initialData,
+  databaseWarning,
+}: {
+  initialData: DashboardSummary;
+  databaseWarning?: string;
+}) {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const { data, loading, lastUpdatedAt } = usePolling<DashboardSummary>('/api/dashboard/summary', {
     intervalMs: 15000,
@@ -29,18 +35,30 @@ export function DashboardClient({ initialData }: { initialData: DashboardSummary
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Главная панель</h1>
-          <p className="text-sm text-text-secondary mt-1">Обзор операций в реальном времени</p>
+          <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
+          <p className="text-sm text-text-secondary mt-1">Real-time operations overview</p>
         </div>
         <div className="flex items-center gap-2 text-2xs text-text-muted">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
           </span>
-          <span className="font-medium text-success">Обновление в реальном времени</span>
-          {secondsAgo !== null && <span>· обновлено {secondsAgo}с назад</span>}
+          <span className="font-medium text-success">Live updates</span>
+          {secondsAgo !== null && <span>· updated {secondsAgo}s ago</span>}
         </div>
       </div>
+
+      {databaseWarning && (
+        <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-4 py-3">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-300" />
+            <div>
+              <p className="text-sm font-medium text-text-primary">Database connection interrupted</p>
+              <p className="mt-0.5 text-xs text-text-secondary">{databaseWarning}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPI Row — 5 cards, values computed server-side from Prisma via /api/dashboard/summary */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
@@ -120,7 +138,7 @@ export function DashboardClient({ initialData }: { initialData: DashboardSummary
         <div className="xl:col-span-2 space-y-4">
           <div className="bg-background-card border border-border rounded-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-text-primary">Карта перевозок</h2>
+              <h2 className="text-sm font-semibold text-text-primary">Fleet Map</h2>
               <span className="flex items-center gap-1.5 text-2xs text-success font-medium">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />

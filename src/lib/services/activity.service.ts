@@ -1,9 +1,10 @@
-// "Недавняя активность" + "Интеграции" cards. Reads from ActivityLog /
+// "Recent Activity" + "Integrations" cards. Reads from ActivityLog /
 // Integration when populated; falls back to deriving a feed from
 // LoadStatusHistory so the card is never empty on a freshly-seeded DB.
 
 import { db } from '@/lib/db';
 import { timeAgo } from '@/lib/utils';
+import { Prisma } from '@prisma/client';
 import { toRouteStatus } from './map.service';
 import type { ActivityRow, IntegrationRow, ActiveDriverRow } from './types';
 
@@ -34,7 +35,7 @@ export async function getRecentActivity(limit = 10): Promise<ActivityRow[]> {
 
   return history.map((h: any) => ({
     id: h.id,
-    title: `Груз ${h.load?.loadCode ?? ''} — статус изменён`,
+    title: `Load ${h.load?.loadCode ?? ''} status changed`,
     description: `${h.fromStatus ?? '—'} → ${h.toStatus}${h.changedBy ? ` · ${h.changedBy.fullName}` : ''}`,
     entityType: 'Load',
     action: 'status_changed',
@@ -59,7 +60,7 @@ export async function logActivity(input: {
       action: input.action,
       title: input.title,
       description: input.description ?? undefined,
-      metadata: input.metadata ?? undefined,
+      metadata: input.metadata ? (input.metadata as Prisma.InputJsonValue) : undefined,
     },
   });
 }
@@ -125,11 +126,11 @@ export async function getActiveDriversForDashboard(limit = 5): Promise<ActiveDri
     results.push({
       id: d.id,
       name: d.fullName,
-      avatar: null,
+      avatar: d.avatarUrl,
       currentLoadId: load?.id ?? null,
       loadNumber: load?.loadCode ?? null,
       route,
-      lastUpdate: loc ? timeAgo(loc.at) : d.status === 'ON_LOAD' ? 'на линии' : 'доступен',
+      lastUpdate: loc ? timeAgo(loc.at) : d.status === 'ON_LOAD' ? 'online' : 'available',
       status: load ? toRouteStatus(load.status) : 'AVAILABLE',
     });
   }
