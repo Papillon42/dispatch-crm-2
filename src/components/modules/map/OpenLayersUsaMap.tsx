@@ -14,6 +14,8 @@ import XYZ from 'ol/source/XYZ';
 import VectorSource from 'ol/source/Vector';
 import { Circle as CircleStyle, Fill, Icon, Stroke, Style, Text } from 'ol/style';
 import { defaults as defaultControls, ScaleLine } from 'ol/control';
+import { Moon, Monitor, Sun } from 'lucide-react';
+import { useTheme } from '@/components/providers/ThemeProvider';
 import { cn } from '@/lib/utils';
 import 'ol/ol.css';
 
@@ -41,6 +43,9 @@ export type OpenLayersRouteArc = {
 type ResolvedRoute = OpenLayersRouteArc & {
   geometry: Array<{ lat: number; lng: number }>;
 };
+
+type MapTheme = 'light' | 'dark';
+type MapThemeMode = 'auto' | MapTheme;
 
 type OpenLayersUsaMapProps = {
   markers: OpenLayersMarker[];
@@ -289,6 +294,7 @@ export function OpenLayersUsaMap({
   className,
   popup,
 }: OpenLayersUsaMapProps) {
+  const { theme: pageTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
@@ -298,7 +304,10 @@ export function OpenLayersUsaMap({
   const onSelectRef = useRef(onSelect);
   const routeGeometryCacheRef = useRef<globalThis.Map<string, Array<{ lat: number; lng: number }>>>(new globalThis.Map());
   const [resolvedRoutes, setResolvedRoutes] = useState<ResolvedRoute[]>([]);
-  const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light');
+  const [mapThemeMode, setMapThemeMode] = useState<MapThemeMode>('auto');
+  const mapTheme: MapTheme = mapThemeMode === 'auto'
+    ? (pageTheme === 'night' ? 'dark' : 'light')
+    : mapThemeMode;
 
   onSelectRef.current = onSelect;
 
@@ -366,7 +375,7 @@ export function OpenLayersUsaMap({
 
     const source = new VectorSource();
     const tileSource = new XYZ({
-      url: LIGHT_TILE_URL,
+      url: mapTheme === 'dark' ? DARK_TILE_URL : LIGHT_TILE_URL,
       attributions: ['© OpenStreetMap contributors', '© CARTO'],
       crossOrigin: 'anonymous',
     });
@@ -423,7 +432,7 @@ export function OpenLayersUsaMap({
       sourceRef.current = null;
       overlayRef.current = null;
     };
-  }, [selectedId]);
+  }, []);
 
   useEffect(() => {
     tileSourceRef.current?.setUrl(mapTheme === 'dark' ? DARK_TILE_URL : LIGHT_TILE_URL);
@@ -550,15 +559,30 @@ export function OpenLayersUsaMap({
         {loading ? 'Loading fleet map' : markers.length ? 'OpenLayers USA fleet map' : emptyLabel}
       </div>
       <div className="absolute right-4 top-4 flex flex-col gap-3">
-        <button
-          type="button"
-          onClick={() => setMapTheme((theme) => (theme === 'dark' ? 'light' : 'dark'))}
-          className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-500/25 bg-slate-950/70 text-slate-200 shadow-xl backdrop-blur hover:bg-slate-900"
-          aria-label={mapTheme === 'dark' ? 'Switch to light map' : 'Switch to dark map'}
-          title={mapTheme === 'dark' ? 'Switch to light map' : 'Switch to dark map'}
-        >
-          <span className="text-lg leading-none">▱</span>
-        </button>
+        <div className="overflow-hidden rounded-lg border border-slate-500/25 bg-slate-950/70 text-slate-200 shadow-xl backdrop-blur">
+          {[
+            { mode: 'auto' as const, label: 'Follow page theme', icon: Monitor },
+            { mode: 'light' as const, label: 'Use light map', icon: Sun },
+            { mode: 'dark' as const, label: 'Use dark map', icon: Moon },
+          ].map(({ mode, label, icon: ThemeIcon }) => {
+            const active = mapThemeMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setMapThemeMode(mode)}
+                className={cn(
+                  'flex h-10 w-10 items-center justify-center hover:bg-slate-900',
+                  active && 'bg-slate-200 text-slate-950 hover:bg-slate-200',
+                )}
+                aria-label={label}
+                title={label}
+              >
+                <ThemeIcon className="h-4 w-4" />
+              </button>
+            );
+          })}
+        </div>
         <button
           type="button"
           className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-500/25 bg-slate-950/70 text-slate-200 shadow-xl backdrop-blur hover:bg-slate-900"
