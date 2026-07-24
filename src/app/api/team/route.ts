@@ -6,9 +6,10 @@ import { db } from '@/lib/db';
 export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url);
   const role = searchParams.get('role');
+  const includeSuspended = searchParams.get('includeSuspended') === '1';
 
   const where: any = {
-    status: { not: 'SUSPENDED' },
+    ...(includeSuspended ? {} : { status: { not: 'SUSPENDED' } }),
     ...(role && role !== 'ALL' ? { role } : {}),
   };
 
@@ -16,7 +17,14 @@ export const GET = withAuth(async (req) => {
     db.user.findMany({
       where,
       orderBy: [{ role: 'asc' }, { fullName: 'asc' }],
-      select: { id: true, fullName: true, email: true, phone: true, role: true, isSenior: true, status: true, createdAt: true },
+      select: {
+        id: true, fullName: true, email: true, phone: true, role: true, isSenior: true,
+        status: true, createdAt: true, managerId: true, approvedAt: true,
+        manager: { select: { id: true, fullName: true } },
+        clientAccount: { select: { id: true, companyName: true } },
+        driverAccount: { select: { id: true, fullName: true } },
+        approvedBy: { select: { id: true, fullName: true } },
+      },
     }),
     db.user.groupBy({ by: ['role'], where: { status: { not: 'SUSPENDED' } }, _count: { _all: true } }),
   ]);

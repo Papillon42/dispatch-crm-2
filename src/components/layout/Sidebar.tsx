@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, Truck, UserCheck, Package,
   Map, MessageSquare, DollarSign, BarChart2, Settings,
-  Shield, Bot, Send, FileText,
+  Shield, Bot, Send, FileText, UsersRound,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { QuickAddCard } from '@/components/ui/QuickAddCard';
@@ -27,6 +27,7 @@ const NAV_ITEMS: Array<{ label: string; href: string; icon: typeof LayoutDashboa
   { label: 'Documents', href: '/documents', icon: FileText, resource: 'documents' },
   { label: 'Telegram Bot', href: '/telegram', icon: Send, resource: 'settings' },
   { label: 'AI Assistant', href: '/ai', icon: Bot },
+  { label: 'Team', href: '/team', icon: UsersRound, resource: 'users' },
 ];
 
 const BOTTOM_ITEMS: Array<{ label: string; href: string; icon: typeof Settings; resource?: NavResource }> = [
