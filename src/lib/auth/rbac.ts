@@ -19,7 +19,41 @@ type Permission = {
   [K in Action]?: 'all' | 'own' | 'team' | 'none';
 };
 
+/** Roles with full administrative control (role approvals, dictionary, settings). */
+export const ADMIN_ROLES: UserRole[] = ['OWNER', 'ADMIN'];
+
+export function isAdminRole(role: string | null | undefined): boolean {
+  return role === 'OWNER' || role === 'ADMIN';
+}
+
+const FULL_ACCESS: Record<Resource, Permission> = {
+  users:                    { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  settings:                 { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  clients:                  { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  client_contacts:          { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  drivers:                  { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  trucks:                   { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  trailers:                 { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  loads:                    { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  load_status_operational:  { update: 'all' },
+  load_status_financial:    { update: 'all' },
+  documents:                { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  communications:           { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  tasks:                    { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  issues:                   { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  finance:                  { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  invoices:                 { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  commissions:              { create: 'all', read: 'all', update: 'all', delete: 'all' },
+  reports:                  { read: 'all', export: 'all' },
+  map:                      { read: 'all' },
+  audit_log:                { read: 'all' },
+  export_requests:          { read: 'all', approve: 'all' },
+};
+
 const PERMISSIONS: Record<UserRole, Record<Resource, Permission>> = {
+  // Owner — full control: any statuses, manual overrides, dictionary edits,
+  // full history, automation settings, and registration approvals.
+  OWNER: FULL_ACCESS,
   ADMIN: {
     users:                    { create: 'all', read: 'all', update: 'all', delete: 'all' },
     settings:                 { create: 'all', read: 'all', update: 'all', delete: 'all' },
@@ -86,7 +120,8 @@ const PERMISSIONS: Record<UserRole, Record<Resource, Permission>> = {
     finance:                  { read: 'own' },
     invoices:                 { read: 'own' },
     commissions:              { read: 'own' },
-    reports:                  { read: 'own', export: 'none' },
+    // Dispatchers explicitly have NO access to Reports and Security (audit log)
+    reports:                  { read: 'none', export: 'none' },
     map:                      { read: 'own' },
     audit_log:                { read: 'none' },
     export_requests:          { create: 'all' },
@@ -163,6 +198,59 @@ const PERMISSIONS: Record<UserRole, Record<Resource, Permission>> = {
     audit_log:                { read: 'none' },
     export_requests:          { create: 'all' },
   },
+
+  // Client (truck-owner company account): STRICTLY read-only, scoped to their
+  // own company — their drivers, their trucks, loads on their equipment and
+  // the map of their drivers. No write permission on anything.
+  CLIENT: {
+    users:                    { read: 'none' },
+    settings:                 { read: 'none' },
+    clients:                  { read: 'own' },
+    client_contacts:          { read: 'own' },
+    drivers:                  { read: 'own' },
+    trucks:                   { read: 'own' },
+    trailers:                 { read: 'own' },
+    loads:                    { read: 'own' },
+    load_status_operational:  { update: 'none' },
+    load_status_financial:    { update: 'none' },
+    documents:                { read: 'own' },
+    communications:           { read: 'none' },
+    tasks:                    { read: 'none' },
+    issues:                   { read: 'own' },
+    finance:                  { read: 'none' },
+    invoices:                 { read: 'none' },
+    commissions:              { read: 'none' },
+    reports:                  { read: 'none' },
+    map:                      { read: 'own' },
+    audit_log:                { read: 'none' },
+    export_requests:          { read: 'none' },
+  },
+
+  // Driver account: personal cabinet only (their trips, statuses, documents
+  // and personal finance) — served by the /driver-app section, not the CRM.
+  DRIVER: {
+    users:                    { read: 'none' },
+    settings:                 { read: 'none' },
+    clients:                  { read: 'none' },
+    client_contacts:          { read: 'none' },
+    drivers:                  { read: 'none' },
+    trucks:                   { read: 'none' },
+    trailers:                 { read: 'none' },
+    loads:                    { read: 'none' },
+    load_status_operational:  { update: 'none' },
+    load_status_financial:    { update: 'none' },
+    documents:                { read: 'none' },
+    communications:           { read: 'none' },
+    tasks:                    { read: 'none' },
+    issues:                   { read: 'none' },
+    finance:                  { read: 'none' },
+    invoices:                 { read: 'none' },
+    commissions:              { read: 'none' },
+    reports:                  { read: 'none' },
+    map:                      { read: 'none' },
+    audit_log:                { read: 'none' },
+    export_requests:          { read: 'none' },
+  },
 };
 
 // ─── PERMISSION CHECKER ───────────────────────────────────────────────────────
@@ -224,9 +312,28 @@ export interface AuthContext {
   role: UserRole;
   isSenior: boolean;
   managerId: string | null;
+  /** CLIENT accounts: the company this login is bound to */
+  clientId: string | null;
+  /** DRIVER accounts: the driver profile this login is bound to */
+  driverId: string | null;
 }
 
-async function createUserFromClerk(clerkId: string) {
+const USER_CTX_SELECT = {
+  id: true, clerkId: true, role: true, isSenior: true, managerId: true,
+  status: true, clientId: true, driverId: true,
+} as const;
+
+/**
+ * Auto-provisioning on first sign-in:
+ *  - the very first real user becomes OWNER (ACTIVE) — someone must be able
+ *    to approve everyone else;
+ *  - every other new sign-up is created as PENDING with no granted role and
+ *    is routed to /onboarding to request one (Owner approves in /team).
+ */
+export async function ensureUserForClerkId(clerkId: string) {
+  const existing = await db.user.findUnique({ where: { clerkId }, select: USER_CTX_SELECT });
+  if (existing) return existing;
+
   const clerkUser = await currentUser().catch(() => null);
   const primaryEmail = clerkUser?.emailAddresses.find((email) => email.id === clerkUser.primaryEmailAddressId)?.emailAddress
     ?? clerkUser?.emailAddresses[0]?.emailAddress
@@ -238,7 +345,7 @@ async function createUserFromClerk(clerkId: string) {
   const realUserCount = await db.user.count({
     where: { clerkId: { not: { startsWith: 'seed-' } } },
   });
-  const role: UserRole = realUserCount === 0 ? 'ADMIN' : 'DISPATCHER';
+  const isFirstUser = realUserCount === 0;
 
   try {
     return await db.user.create({
@@ -246,20 +353,17 @@ async function createUserFromClerk(clerkId: string) {
         clerkId,
         email: primaryEmail,
         fullName,
-        role,
-        isSenior: role === 'ADMIN',
-        status: 'ACTIVE',
-        ndaAccepted: true,
-        ndaAcceptedAt: new Date(),
+        role: isFirstUser ? 'OWNER' : 'DISPATCHER', // placeholder role while PENDING
+        isSenior: isFirstUser,
+        status: isFirstUser ? 'ACTIVE' : 'PENDING',
+        ndaAccepted: isFirstUser,
+        ndaAcceptedAt: isFirstUser ? new Date() : null,
       },
-      select: { id: true, clerkId: true, role: true, isSenior: true, managerId: true, status: true },
+      select: USER_CTX_SELECT,
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return db.user.findUnique({
-        where: { clerkId },
-        select: { id: true, clerkId: true, role: true, isSenior: true, managerId: true, status: true },
-      });
+      return db.user.findUnique({ where: { clerkId }, select: USER_CTX_SELECT });
     }
 
     throw error;
@@ -270,10 +374,7 @@ export async function getAuthContext(): Promise<AuthContext | null> {
   const { userId: clerkId } = auth();
   if (!clerkId) return null;
 
-  const user = await db.user.findUnique({
-    where: { clerkId },
-    select: { id: true, clerkId: true, role: true, isSenior: true, managerId: true, status: true },
-  }) ?? await createUserFromClerk(clerkId);
+  const user = await ensureUserForClerkId(clerkId);
 
   if (!user || user.status !== 'ACTIVE') return null;
 
@@ -283,6 +384,8 @@ export async function getAuthContext(): Promise<AuthContext | null> {
     role: user.role,
     isSenior: user.isSenior,
     managerId: user.managerId,
+    clientId: user.clientId,
+    driverId: user.driverId,
   };
 }
 
@@ -323,6 +426,8 @@ export function getDispatcherFilter(ctx: AuthContext): object {
     // Senior sees their team
     return { dispatcher: { OR: [{ id: ctx.userId }, { managerId: ctx.userId }] } };
   }
+  // CLIENT: read-only loads of their own company (tenant isolation)
+  if (ctx.role === 'CLIENT') return { clientId: ctx.clientId ?? '__none__' };
   // 'own' — dispatcher sees only their own
   return { dispatcherId: ctx.userId };
 }
@@ -333,6 +438,7 @@ export function getClientFilter(ctx: AuthContext): object {
   if (scope === 'team') {
     return { dispatcher: { OR: [{ id: ctx.userId }, { managerId: ctx.userId }] } };
   }
+  if (ctx.role === 'CLIENT') return { id: ctx.clientId ?? '__none__' };
   return { dispatcherId: ctx.userId };
 }
 
@@ -342,5 +448,6 @@ export function getDriverFilter(ctx: AuthContext): object {
   if (scope === 'team') {
     return { dispatcher: { OR: [{ id: ctx.userId }, { managerId: ctx.userId }] } };
   }
+  if (ctx.role === 'CLIENT') return { clientId: ctx.clientId ?? '__none__' };
   return { dispatcherId: ctx.userId };
 }

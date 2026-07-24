@@ -16,9 +16,21 @@ export async function getDriverAppAuthContext(): Promise<DriverAppAuthContext | 
     where: { clerkId },
     select: { id: true, driverId: true, clerkId: true },
   });
-  if (!mobileUser) return null;
+  if (mobileUser) {
+    return { mobileUserId: mobileUser.id, driverId: mobileUser.driverId, clerkId: mobileUser.clerkId };
+  }
 
-  return { mobileUserId: mobileUser.id, driverId: mobileUser.driverId, clerkId: mobileUser.clerkId };
+  // DRIVER-role accounts created through the registration/approval flow are
+  // bound to a Driver profile via User.driverId — same row-level isolation.
+  const driverUser = await db.user.findUnique({
+    where: { clerkId },
+    select: { id: true, role: true, status: true, driverId: true },
+  });
+  if (driverUser?.role === 'DRIVER' && driverUser.status === 'ACTIVE' && driverUser.driverId) {
+    return { mobileUserId: driverUser.id, driverId: driverUser.driverId, clerkId };
+  }
+
+  return null;
 }
 
 export async function requireDriverAppContext(): Promise<DriverAppAuthContext> {

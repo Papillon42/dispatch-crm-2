@@ -11,14 +11,18 @@ import { formatDate } from '@/lib/utils';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/components/providers/ToastProvider';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { PendingApprovals } from './PendingApprovals';
 
 const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Admin / Owner',
+  OWNER: 'Owner',
+  ADMIN: 'Admin',
   SENIOR_DISPATCHER: 'Senior Dispatcher',
   DISPATCHER: 'Dispatcher',
   UPDATER: 'Updater',
   RECRUITER: 'Recruiter',
   FINANCE: 'Finance',
+  CLIENT: 'Client',
+  DRIVER: 'Driver',
 };
 
 export function TeamWorkspace() {
@@ -39,7 +43,7 @@ export function TeamWorkspace() {
     { intervalMs: 20000 },
   );
   const users = data?.users ?? [];
-  const canDelete = currentUser?.role === 'ADMIN';
+  const canDelete = currentUser?.role != null && ['OWNER', 'ADMIN'].includes(currentUser.role);
 
   async function deleteUser() {
     if (!deleteTarget) return;
@@ -88,6 +92,8 @@ export function TeamWorkspace() {
   return (
     <div className="p-6 space-y-5">
       <PageHeader title="Team" subtitle="Internal users by role" actions={<LiveBadge lastUpdatedAt={lastUpdatedAt} />} />
+
+      {canDelete && <PendingApprovals onChanged={refresh} />}
 
       <div className="flex flex-wrap gap-2">
         {['ALL', ...Object.keys(ROLE_LABELS)].map((r) => (

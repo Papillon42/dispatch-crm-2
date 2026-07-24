@@ -8,17 +8,21 @@ import {
   Search, Plus, Bell, MessageSquare, Menu, Command,
 } from 'lucide-react';
 import { usePolling } from '@/hooks/usePolling';
+import { useRealtime } from '@/hooks/useRealtime';
 import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher';
 import { cn, timeAgo } from '@/lib/utils';
 
 // Role labels stay consistent with RoleCards and other account surfaces.
 const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Owner',
+  OWNER: 'Owner',
+  ADMIN: 'Admin',
   SENIOR_DISPATCHER: 'Senior Dispatcher',
   DISPATCHER: 'Dispatcher',
   UPDATER: 'Updater',
   RECRUITER: 'Recruiter',
   FINANCE: 'Finance',
+  CLIENT: 'Client',
+  DRIVER: 'Driver',
 };
 
 export function Topbar({ onToggleSidebar }: { onToggleSidebar?: () => void }) {
@@ -30,9 +34,28 @@ export function Topbar({ onToggleSidebar }: { onToggleSidebar?: () => void }) {
   const { data: me } = usePolling<any>('/api/me', { intervalMs: 60000 });
   const { data: tasksData } = usePolling<any>('/api/tasks?mine=1&status=PENDING', { intervalMs: 20000 });
   const { data: threadsData } = usePolling<any>('/api/communications/threads', { intervalMs: 20000 });
+  const { data: notifData, refresh: refreshNotifications } = usePolling<any>('/api/notifications?limit=15', { intervalMs: 30000 });
+
+  // In-app notifications land instantly (new registrations, status changes…)
+  useRealtime({
+    events: ['user.registration.requested', 'user.registration.approved', 'user.registration.rejected', 'driver.status.updated'],
+    onEvent: () => refreshNotifications(),
+  });
 
   const tasks = tasksData?.tasks ?? [];
+  const notifications = notifData?.notifications ?? [];
+  const unreadNotifications = notifData?.unreadCount ?? 0;
   const unreadMessages = (threadsData?.threads ?? []).reduce((s: number, t: any) => s + t.unreadCount, 0);
+  const badgeCount = unreadNotifications + tasks.length;
+
+  async function markAllRead() {
+    await fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    }).catch(() => null);
+    refreshNotifications();
+  }
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -103,20 +126,52 @@ export function Topbar({ onToggleSidebar }: { onToggleSidebar?: () => void }) {
             aria-label="Notifications"
           >
             <Bell className="w-4 h-4" />
-            {tasks.length > 0 && (
+            {badgeCount > 0 && (
               <span className="absolute top-1 right-1.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-danger text-white text-[9px] leading-[14px] text-center">
-                {tasks.length}
+                {badgeCount > 99 ? '99+' : badgeCount}
               </span>
             )}
           </button>
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-80 rounded-lg border border-border bg-background-card shadow-xl overflow-hidden">
-              <div className="px-3 py-2.5 border-b border-border-subtle text-xs font-semibold text-text-primary">
-                Pending tasks
+            <div className="absolute right-0 mt-2 w-96 rounded-lg border border-border bg-background-card shadow-xl overflow-hidden">
+              <div className="px-3 py-2.5 border-b border-border-subtle flex items-center justify-between">
+                <span className="text-xs font-semibold text-text-primary">Notifications</span>
+                {unreadNotifications > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void markAllRead()}
+                    className="text-2xs text-text-secondary hover:text-text-primary underline underline-offset-2"
+                  >
+                    Mark all read
+                  </button>
+                )}
               </div>
-              <div className="max-h-72 overflow-y-auto divide-y divide-border-subtle">
-                {tasks.length === 0 && <p className="px-3 py-4 text-xs text-text-muted text-center">All caught up.</p>}
-                {tasks.slice(0, 8).map((t: any) => (
+              <div className="max-h-80 overflow-y-auto divide-y divide-border-subtle">
+                {notifications.length === 0 && tasks.length === 0 && (
+                  <p className="px-3 py-4 text-xs text-text-muted text-center">All caught up.</p>
+                )}
+                {notifications.slice(0, 10).map((n: any) => {
+                  const isRegistration = n.type === 'user.registration.requested';
+                  const inner = (
+                    <div className={cn('px-3 py-2.5 hover:bg-background-hover transition-colors', !n.readAt && 'bg-brand-muted/20')}>
+                      <div className="flex items-start gap-2">
+                        {!n.readAt && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-brand-light flex-shrink-0" />}
+                        <div className="min-w-0">
+                          <p className="text-xs text-text-primary">{n.title}</p>
+                          {n.body && <p className="text-2xs text-text-secondary mt-0.5 truncate">{n.body}</p>}
+                          <p className="text-2xs text-text-muted mt-0.5">{timeAgo(n.createdAt)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                  return isRegistration
+                    ? <Link key={n.id} href="/team" onClick={() => setNotifOpen(false)}>{inner}</Link>
+                    : <div key={n.id}>{inner}</div>;
+                })}
+                {tasks.length > 0 && (
+                  <div className="px-3 py-2 text-2xs uppercase tracking-wider text-text-muted bg-background-secondary">Pending tasks</div>
+                )}
+                {tasks.slice(0, 5).map((t: any) => (
                   <div key={t.id} className="px-3 py-2.5">
                     <p className="text-xs text-text-primary">{t.title}</p>
                     <p className="text-2xs text-text-muted">{t.priority} {t.dueAt ? `· due ${timeAgo(t.dueAt)}` : ''}</p>

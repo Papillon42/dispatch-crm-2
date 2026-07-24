@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn, formatDateTime, timeAgo } from '@/lib/utils';
 import { DriverStatusBadge } from '@/components/ui/StatusBadge';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useDriverStatuses } from '@/hooks/useDriverStatuses';
 import { useRealtime } from '@/hooks/useRealtime';
 import { useToast } from '@/components/providers/ToastProvider';
@@ -42,6 +43,7 @@ interface DriverDetail extends DriverDetailForModal {
   currentLocationUpdatedAt: string | null;
   currentEta: string | null;
   homeBase: string | null;
+  payPerMile: number | null;
   client: { id: string; companyName: string; mc: string | null; dot: string | null } | null;
   dispatcher: { id: string; fullName: string } | null;
   updater: { id: string; fullName: string } | null;
@@ -86,6 +88,32 @@ export function DriverDetailWorkspace({ driverId }: { driverId: string }) {
   const [locationsLoading, setLocationsLoading] = useState(false);
   const { statuses } = useDriverStatuses();
   const { showToast } = useToast();
+  const { user: currentUser } = useCurrentUser();
+  const canEditPay = currentUser?.role != null && ['OWNER', 'ADMIN'].includes(currentUser.role);
+  const [payDraft, setPayDraft] = useState<string | null>(null);
+
+  async function savePayPerMile() {
+    if (payDraft === null || !driver) return;
+    const value = payDraft.trim() === '' ? null : Number(payDraft);
+    if (value !== null && (!Number.isFinite(value) || value < 0)) {
+      showToast('Enter a valid pay rate', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`/api/drivers/${driver.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payPerMile: value }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error ?? 'Unable to save pay rate');
+      showToast('Pay rate saved', 'success');
+      setPayDraft(null);
+      void loadDriver();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Unable to save pay rate', 'error');
+    }
+  }
 
   const loadDriver = useCallback(async () => {
     try {
@@ -387,6 +415,33 @@ export function DriverDetailWorkspace({ driverId }: { driverId: string }) {
             <div className="p-4">
               <p className="text-2xs uppercase tracking-wider text-text-muted">Updater</p>
               <p className="text-sm font-medium text-text-primary mt-2">{driver.updater?.fullName ?? '—'}</p>
+            </div>
+            <div className="p-4 col-span-2 md:col-span-4 border-t border-border-subtle">
+              <p className="text-2xs uppercase tracking-wider text-text-muted">Pay per mile (driver&apos;s personal rate)</p>
+              {canEditPay ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    value={payDraft ?? (driver.payPerMile?.toString() ?? '')}
+                    onChange={(e) => setPayDraft(e.target.value)}
+                    placeholder="0.65"
+                    className="h-9 w-28 rounded-md border border-border bg-background-secondary px-3 text-sm text-text-primary outline-none focus:border-border-focus"
+                  />
+                  <span className="text-xs text-text-muted">$/mi — used in the driver&apos;s My Finance screen</span>
+                  {payDraft !== null && (
+                    <button
+                      type="button"
+                      onClick={() => void savePayPerMile()}
+                      className="h-9 rounded-md bg-brand px-3 text-xs font-medium text-white hover:bg-brand-dark"
+                    >
+                      Save
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm font-medium text-text-primary mt-2">
+                  {driver.payPerMile != null ? `$${driver.payPerMile.toFixed(2)}/mi` : 'Not set'}
+                </p>
+              )}
             </div>
           </div>
         )}

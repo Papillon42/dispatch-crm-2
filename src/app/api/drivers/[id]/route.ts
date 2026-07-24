@@ -42,6 +42,46 @@ export const GET = withAuth(async (req, ctx, params) => {
   return NextResponse.json(driver);
 }, 'drivers', 'read');
 
+// PATCH /api/drivers/:id — limited profile update (currently: personal pay
+// rate per mile, dispatcher/updater assignment). Owner/Admin only for pay.
+export const PATCH = withAuth(async (req, ctx, params) => {
+  const id = params?.id;
+  if (!id) return NextResponse.json({ error: 'Missing driver ID' }, { status: 400 });
+
+  const body = await req.json().catch(() => ({}));
+  const payPerMile = body?.payPerMile;
+
+  if (payPerMile !== undefined) {
+    if (!['OWNER', 'ADMIN'].includes(ctx.role)) {
+      return NextResponse.json({ error: 'Only the Owner can change a driver pay rate' }, { status: 403 });
+    }
+    if (payPerMile !== null && (typeof payPerMile !== 'number' || payPerMile < 0 || payPerMile > 20)) {
+      return NextResponse.json({ error: 'payPerMile must be a number between 0 and 20' }, { status: 422 });
+    }
+  }
+
+  const existing = await db.driver.findFirst({ where: { id, deletedAt: null } });
+  if (!existing) return NextResponse.json({ error: 'Driver not found' }, { status: 404 });
+
+  const updated = await db.driver.update({
+    where: { id },
+    data: {
+      ...(payPerMile !== undefined ? { payPerMile } : {}),
+    },
+  });
+
+  await audit({
+    actorId: ctx.userId,
+    action: 'update',
+    entityType: 'Driver',
+    entityId: id,
+    before: { payPerMile: existing.payPerMile },
+    after: { payPerMile: updated.payPerMile },
+  });
+
+  return NextResponse.json(updated);
+}, 'drivers', 'update');
+
 // DELETE /api/drivers/:id — soft delete (sets deletedAt). Historical Loads,
 // LocationUpdates, Documents, Issues stay intact for reporting/audit trail;
 // the driver just stops appearing in active lists and pickers.

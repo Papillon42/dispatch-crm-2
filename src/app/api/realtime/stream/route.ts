@@ -12,13 +12,18 @@ export const runtime = 'nodejs';
 // keeps proxies from closing the connection.
 export const GET = withAuth(async (req, ctx) => {
   const mapScope = canScope(ctx.role, 'read', 'map');
-  if (mapScope === 'none') {
+  if (mapScope === 'none' && ctx.role !== 'DRIVER') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Row-level visibility: which dispatcherIds may this user see?
-  // null = all (admin / updater / finance-with-map).
+  // Row-level visibility:
+  //   dispatcher scope — events of their own drivers only
+  //   CLIENT scope     — events of their own company only
+  //   DRIVER scope     — events about themselves only
+  //   null             — all (owner / admin / updater / finance-with-map)
   let visibleDispatcherIds: string[] | null = null;
+  const visibleClientId = ctx.role === 'CLIENT' ? (ctx.clientId ?? '__none__') : null;
+  const visibleDriverId = ctx.role === 'DRIVER' ? (ctx.driverId ?? '__none__') : null;
   if (ctx.role === 'DISPATCHER') {
     visibleDispatcherIds = [ctx.userId];
   } else if (ctx.role === 'SENIOR_DISPATCHER') {
@@ -49,6 +54,8 @@ export const GET = withAuth(async (req, ctx) => {
         if (visibleDispatcherIds !== null) {
           if (!event.dispatcherId || !visibleDispatcherIds.includes(event.dispatcherId)) return;
         }
+        if (visibleClientId !== null && event.clientId !== visibleClientId) return;
+        if (visibleDriverId !== null && event.driverId !== visibleDriverId) return;
         send(`event: ${event.event}\ndata: ${JSON.stringify(event)}\n\n`);
       });
 

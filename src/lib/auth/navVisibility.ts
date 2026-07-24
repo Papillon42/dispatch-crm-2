@@ -15,12 +15,18 @@ export type NavResource =
   | 'settings' | 'audit_log';
 
 const HIDDEN_FOR_ROLE: Record<string, NavResource[]> = {
+  OWNER: [],
   ADMIN: [],
   FINANCE: ['map'],
   SENIOR_DISPATCHER: ['settings', 'audit_log'],
-  DISPATCHER: ['settings', 'audit_log'],
+  // Dispatchers must not see Reports or Security at all
+  DISPATCHER: ['reports', 'settings', 'audit_log'],
   UPDATER: ['finance', 'settings', 'audit_log'],
   RECRUITER: ['loads', 'map', 'finance', 'settings', 'audit_log'],
+  // CLIENT / DRIVER never see the internal CRM shell (they are redirected to
+  // their own cabinets), but keep everything hidden as a safety net.
+  CLIENT: ['clients', 'drivers', 'trucks', 'loads', 'map', 'communications', 'finance', 'reports', 'documents', 'settings', 'audit_log'],
+  DRIVER: ['clients', 'drivers', 'trucks', 'loads', 'map', 'communications', 'finance', 'reports', 'documents', 'settings', 'audit_log'],
 };
 
 export function canSeeNavResource(role: string | null | undefined, resource: NavResource): boolean {

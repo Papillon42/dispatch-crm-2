@@ -275,7 +275,7 @@ export function DriversWorkspace() {
     },
   });
 
-  const canDelete = user?.role === 'ADMIN';
+  const canDelete = user?.role != null && ['OWNER', 'ADMIN'].includes(user.role);
 
   const availableCount = drivers.filter((driver) => driver.status === 'AVAILABLE').length;
   const onLoadCount = drivers.filter((driver) => ON_TRIP_STATUSES.includes(driver.status)).length;

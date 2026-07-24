@@ -76,7 +76,7 @@ export const POST = withAuth(async (req, ctx) => {
   const client = await db.client.create({
     data: {
       ...data,
-      dispatcherId: ctx.role === 'ADMIN' ? data.dispatcherId ?? ctx.userId : ctx.userId,
+      dispatcherId: ['OWNER', 'ADMIN'].includes(ctx.role) ? data.dispatcherId ?? ctx.userId : ctx.userId,
       contacts: contacts ? { create: contacts } : undefined,
     },
     include: {

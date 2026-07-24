@@ -78,7 +78,7 @@ export function TrucksWorkspace() {
     }
   }
 
-  const canDelete = user?.role === 'ADMIN';
+  const canDelete = user?.role != null && ['OWNER', 'ADMIN'].includes(user.role);
 
   const allTrucks: any[] = allTrucksForKpi?.trucks ?? [];
   const activeCount = allTrucks.filter((t) => t.maintenanceStatus !== 'OVERDUE' && t.maintenanceStatus !== 'IN_PROGRESS').length;

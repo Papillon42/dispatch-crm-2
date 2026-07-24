@@ -13,16 +13,21 @@ datasource db {
 // ─── ENUMS ───────────────────────────────────────────────────────────────────
 
 enum UserRole {
+  OWNER              // full control incl. role approvals (ADMIN kept as legacy synonym)
   ADMIN
   SENIOR_DISPATCHER
   DISPATCHER
   UPDATER
   RECRUITER
   FINANCE
+  CLIENT             // truck-owner company account: read-only, own company only
+  DRIVER             // driver account: own trips, statuses and personal finance
 }
 
 enum UserStatus {
   ACTIVE
+  PENDING            // signed up, waiting for Owner role approval
+  REJECTED           // registration rejected by Owner
   INACTIVE
   SUSPENDED
 }
@@ -239,6 +244,18 @@ model User {
   role         UserRole
   isSenior     Boolean    @default(false)
   status       UserStatus @default(ACTIVE)
+  // ── Registration / role-approval flow ──
+  requestedRole   UserRole?  // role the person asked for at sign-up
+  roleRequestNote String?    // free-form note ("I drive for ABC Logistics, truck TRK-1004")
+  approvedById    String?
+  approvedBy      User?      @relation("UserApprovals", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
+  rejectedReason  String?
+  // ── Role bindings ──
+  clientId     String?    // CLIENT accounts: which company this login belongs to
+  clientAccount Client?   @relation("ClientUsers", fields: [clientId], references: [id])
+  driverId     String?    // DRIVER accounts: which driver profile this login belongs to
+  driverAccount Driver?   @relation("DriverUsers", fields: [driverId], references: [id])
   twoFaEnabled Boolean    @default(false)
   ndaAccepted  Boolean    @default(false)
   ndaAcceptedAt DateTime?
@@ -270,6 +287,7 @@ model User {
   driverStatusChanges DriverStatusHistory[] @relation("DriverStatusChangedBy")
   driversStatusSet    Driver[]              @relation("DriverStatusUpdatedBy")
   notifications       Notification[]        @relation("UserNotifications")
+  approvalsGiven      User[]                @relation("UserApprovals")
 
   @@index([role])
   @@index([managerId])
@@ -317,6 +335,7 @@ model Client {
   surveys       Survey[]
   financeEntries FinanceEntry[]
   portalUser    PortalUser?
+  userAccounts  User[]          @relation("ClientUsers")
 
   @@index([dispatcherId])
   @@index([status])
@@ -378,6 +397,8 @@ model Driver {
   updaterId      String?
   updater        User?        @relation("UpdaterDrivers", fields: [updaterId], references: [id])
   score          Float        @default(100.0)
+  // Personal pay rate ($ per loaded mile) for the driver's own finance view
+  payPerMile     Float?
   hosAvailableUntil DateTime?
   notes          String?
   deletedAt      DateTime?
@@ -392,6 +413,7 @@ model Driver {
   issues          Issue[]         @relation("DriverIssues")
   scoreEvents     ScoreEvent[]
   mobileUser      MobileUser?
+  userAccounts    User[]          @relation("DriverUsers")
 
   @@index([clientId])
   @@index([dispatcherId])

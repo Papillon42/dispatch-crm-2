@@ -249,7 +249,7 @@ export function ClientsWorkspace() {
     }
   }
 
-  const canDelete = user?.role === 'ADMIN';
+  const canDelete = user?.role != null && ['OWNER', 'ADMIN'].includes(user.role);
 
   const loadsCount = clients.reduce((sum, client) => sum + client._count.loads, 0);
 

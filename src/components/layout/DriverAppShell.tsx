@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Package, ListChecks, Map as MapIcon, FileText, Bell } from 'lucide-react';
+import { Package, ListChecks, Map as MapIcon, FileText, Bell, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher';
 
@@ -10,7 +10,8 @@ const TABS = [
   { href: '/driver-app', label: 'Load', icon: Package },
   { href: '/driver-app/status', label: 'Status', icon: ListChecks },
   { href: '/driver-app/trip', label: 'Route', icon: MapIcon },
-  { href: '/driver-app/documents', label: 'Docs & Chat', icon: FileText },
+  { href: '/driver-app/finance', label: 'Finance', icon: DollarSign },
+  { href: '/driver-app/documents', label: 'Docs', icon: FileText },
 ];
 
 export function DriverAppShell({ title, children }: { title: string; children: React.ReactNode }) {

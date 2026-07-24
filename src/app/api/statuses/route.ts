@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { withAuth } from '@/lib/auth/rbac';
+import { withAuth, isAdminRole } from '@/lib/auth/rbac';
 import { db } from '@/lib/db';
 import { audit } from '@/lib/audit';
 import { getDriverStatusConfigs } from '@/lib/services/driverStatus.service';
@@ -9,7 +9,7 @@ import { getDriverStatusConfigs } from '@/lib/services/driverStatus.service';
 // ?all=1 includes disabled statuses (admin dictionary management view).
 export const GET = withAuth(async (req, ctx) => {
   const { searchParams } = new URL(req.url);
-  const includeInactive = searchParams.get('all') === '1' && ctx.role === 'ADMIN';
+  const includeInactive = searchParams.get('all') === '1' && isAdminRole(ctx.role);
   const statuses = await getDriverStatusConfigs(!includeInactive);
   return NextResponse.json({ statuses });
 }, 'drivers', 'read');
@@ -29,7 +29,7 @@ const CreateStatusSchema = z.object({
 
 // POST /api/statuses — add a custom status (Admin only)
 export const POST = withAuth(async (req, ctx) => {
-  if (ctx.role !== 'ADMIN') {
+  if (!isAdminRole(ctx.role)) {
     return NextResponse.json({ error: 'Only admins can manage the status dictionary' }, { status: 403 });
   }
 

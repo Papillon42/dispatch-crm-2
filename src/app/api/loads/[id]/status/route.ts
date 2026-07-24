@@ -34,7 +34,7 @@ export const PATCH = withAuth(async (req, ctx, params) => {
 
   // Financial status transitions require Finance/Admin role
   const financialStatuses: LoadStatus[] = ['INVOICED', 'PAID', 'CLOSED'];
-  if (financialStatuses.includes(newStatus) && !['ADMIN', 'FINANCE', 'SENIOR_DISPATCHER'].includes(ctx.role)) {
+  if (financialStatuses.includes(newStatus) && !['OWNER', 'ADMIN', 'FINANCE', 'SENIOR_DISPATCHER'].includes(ctx.role)) {
     return NextResponse.json({ error: 'Financial status changes require Finance role' }, { status: 403 });
   }
 

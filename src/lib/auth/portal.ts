@@ -21,7 +21,19 @@ export async function getPortalAuthContext(): Promise<PortalAuthContext | null> 
     select: { id: true, clientId: true, clerkId: true },
   });
 
-  if (!portalUser) return null;
+  if (portalUser) {
+    return { portalUserId: portalUser.id, clientId: portalUser.clientId, clerkId: portalUser.clerkId };
+  }
 
-  return { portalUserId: portalUser.id, clientId: portalUser.clientId, clerkId: portalUser.clerkId };
+  // CLIENT-role accounts created through the registration/approval flow are
+  // bound to a Client company via User.clientId — same hard isolation.
+  const clientUser = await db.user.findUnique({
+    where: { clerkId },
+    select: { id: true, role: true, status: true, clientId: true },
+  });
+  if (clientUser?.role === 'CLIENT' && clientUser.status === 'ACTIVE' && clientUser.clientId) {
+    return { portalUserId: clientUser.id, clientId: clientUser.clientId, clerkId };
+  }
+
+  return null;
 }

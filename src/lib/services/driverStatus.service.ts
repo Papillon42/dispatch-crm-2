@@ -41,9 +41,9 @@ export class StatusChangeError extends Error {
 }
 
 // Roles allowed to change operational driver statuses at all
-const STATUS_CHANGE_ROLES = ['ADMIN', 'SENIOR_DISPATCHER', 'DISPATCHER', 'UPDATER'] as const;
+const STATUS_CHANGE_ROLES = ['OWNER', 'ADMIN', 'SENIOR_DISPATCHER', 'DISPATCHER', 'UPDATER'] as const;
 // Roles allowed to perform manual overrides (non-standard transitions)
-const OVERRIDE_ROLES = ['ADMIN', 'SENIOR_DISPATCHER'] as const;
+const OVERRIDE_ROLES = ['OWNER', 'ADMIN', 'SENIOR_DISPATCHER'] as const;
 // Updater may only move drivers along the operational pipeline
 const UPDATER_ALLOWED_STATUSES = [
   'TO_PICKUP', 'AT_PICKUP', 'LOADING', 'ON_LOAD', 'IN_TRANSIT', 'AT_DELIVERY', 'UNLOADING', 'DELIVERED',
@@ -449,7 +449,7 @@ export async function updateDriverOperationalStatus(
     if (updatedDriver.dispatcher?.id) notifyUserIds.add(updatedDriver.dispatcher.id);
     if (updatedDriver.updater?.id) notifyUserIds.add(updatedDriver.updater.id);
     const admins = await tx.user.findMany({
-      where: { role: 'ADMIN', status: 'ACTIVE' },
+      where: { role: { in: ['OWNER', 'ADMIN'] }, status: 'ACTIVE' },
       select: { id: true },
     });
     admins.forEach((a) => notifyUserIds.add(a.id));

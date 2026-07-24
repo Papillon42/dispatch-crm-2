@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { withAuth } from '@/lib/auth/rbac';
+import { withAuth, isAdminRole } from '@/lib/auth/rbac';
 import { db } from '@/lib/db';
 import { audit } from '@/lib/audit';
 
@@ -21,7 +21,7 @@ const UpdateStatusSchema = z.object({
 // transitions of a dictionary entry (Admin only). The status CODE is immutable
 // so history rows always stay resolvable; system rows cannot be deleted.
 export const PATCH = withAuth(async (req, ctx, params) => {
-  if (ctx.role !== 'ADMIN') {
+  if (!isAdminRole(ctx.role)) {
     return NextResponse.json({ error: 'Only admins can manage the status dictionary' }, { status: 403 });
   }
   const id = params?.id;
@@ -52,7 +52,7 @@ export const PATCH = withAuth(async (req, ctx, params) => {
 
 // DELETE /api/statuses/:id — only custom (non-system) statuses, only when unused
 export const DELETE = withAuth(async (req, ctx, params) => {
-  if (ctx.role !== 'ADMIN') {
+  if (!isAdminRole(ctx.role)) {
     return NextResponse.json({ error: 'Only admins can manage the status dictionary' }, { status: 403 });
   }
   const id = params?.id;
